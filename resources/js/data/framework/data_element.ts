@@ -1,6 +1,6 @@
 abstract class DataElement {
     name: string
-    properties: DataProperty<any>[]
+    properties: CompoundDataProperty
 
     constructor(name: string) {
         this.name = name
