@@ -1,23 +1,25 @@
-abstract class DataElement {
+import { ObjectDataProperty } from "./data_property"
+import { DatapackFormat } from "../../util/version_util"
+import { validateResourceLocation } from "../../util/resource_location_util"
+
+export abstract class DataElement {
     name: string
     properties: ObjectDataProperty
 
-    constructor(name: string) {
+    constructor(name: string, populateProperties: (element: DataElement) => void) {
         this.name = name
-        this.populateProperties()
+        populateProperties(this)
     }
-
-    abstract populateProperties(): void
 
     abstract serialize(format: DatapackFormat): object
     abstract deserialize(json:object): void
 }
 
-abstract class NamespacedDataElement extends DataElement {
+export abstract class NamespacedDataElement extends DataElement {
     resourceLocation: string
 
-    constructor(resourceLocation: string, displayName: string) {
-        super(displayName)
+    constructor(resourceLocation: string, displayName: string, populateProperties: (element: DataElement) => void) {
+        super(displayName, populateProperties)
 
         if (validateResourceLocation(resourceLocation)) {
             this.resourceLocation = resourceLocation

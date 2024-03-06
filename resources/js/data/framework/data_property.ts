@@ -1,34 +1,31 @@
-abstract class DataProperty<T> {
+import { DatapackFormat } from "../../util/version_util"
+import { Serializable, SerializableArray } from "./serializables"
+
+export abstract class DataProperty<T extends Serializable> {
+    type: Serializable
     name?: string
 
-    constructor(name?: string) {
+    constructor(type: Serializable, name?: string) {
         this.name = name
+        this.type = type
     }
 
     abstract getValue(): T
     abstract serialize(format: DatapackFormat): any
 }
 
-abstract class StandardDataProperty<T> extends DataProperty<T> {
+export class StandardDataProperty<T extends Serializable> extends DataProperty<T> {
     value: T
 
-    constructor(name: string = "", defaultValue: T) {
-        super(name)
+    constructor(type: Serializable, defaultValue: T, name?: string) {
+        super(type, name)
         this.value = defaultValue
     }
 
     getValue(): T {
         return this.value
     }
-}
 
-class SimpleDataProperty<T> extends StandardDataProperty<T> {
-    serialize(format: DatapackFormat): any {
-        return this.name + ":" + this.value
-    }
-}
-
-class ElementDataProperty<T extends DataElement> extends StandardDataProperty<T> {
     serialize(format: DatapackFormat): any {
         let output: string = ""
 
@@ -41,11 +38,11 @@ class ElementDataProperty<T extends DataElement> extends StandardDataProperty<T>
     }
 }
 
-class ObjectDataProperty extends DataProperty<DataProperty<any>[]> {
+export class ObjectDataProperty extends DataProperty<SerializableArray<DataProperty<any>>> {
     properties: DataProperty<any>[]
 
-    constructor(name?: string) {
-        super(name)
+    constructor(type: Serializable, name?: string) {
+        super(type, name)
         this.properties = new Array<DataProperty<any>>
     }
 
@@ -53,7 +50,7 @@ class ObjectDataProperty extends DataProperty<DataProperty<any>[]> {
         this.properties.push(property)
     }
 
-    getValue(): DataProperty<any>[] {
+    getValue(): SerializableArray<DataProperty<any>> {
         throw this.properties
     }
 
@@ -71,20 +68,21 @@ class ObjectDataProperty extends DataProperty<DataProperty<any>[]> {
                 throw new Error("Sub-properties of object data property cannot be anonymous!")
             }
             
-            output += property.serialize + "\n"
+            output += property.serialize + ",\n"
         }
 
+        output = output.slice(0, -1) // Remove the trailing comma
         output += "}"
 
         return output
     }
 }
 
-class ArrayDataProperty<T> extends DataProperty<T[]> {
+export class ArrayDataProperty<T extends Serializable> extends DataProperty<SerializableArray<T>> {
     entries: T[]
 
-    constructor(name?: string) {
-        super(name)
+    constructor(type: Serializable, name?: string) {
+        super(type, name)
         this.entries = new Array<T>
     }
 
@@ -92,7 +90,7 @@ class ArrayDataProperty<T> extends DataProperty<T[]> {
         this.entries.push(entry)
     }
 
-    getValue(): T[] {
+    getValue(): SerializableArray<T> {
         throw this.entries
     }
 
@@ -106,9 +104,15 @@ class ArrayDataProperty<T> extends DataProperty<T[]> {
         output += "[\n"
 
         for (let entry of this.entries) {
+            if (entry instanceof DataProperty && entry.name != "") {
+                throw new Error("Sub-properties of array data property cannot be named!")
+            }
+    
+            entry.serialize(format)
             output += this.serlializeEntry(entry, format) + ",\n"
         }
 
+        output = output.slice(0, -1) // Remove the trailing comma
         output += "]"
 
         return output
@@ -119,17 +123,7 @@ class ArrayDataProperty<T> extends DataProperty<T[]> {
     }
 }
 
-class SerializableArrayDataProperty<T extends Serializable> extends ArrayDataProperty<T> {
-    serlializeEntry(entry: T, format: DatapackFormat): any {
-        if (entry instanceof DataProperty && entry.name != "") {
-            throw new Error("Sub-properties of array data property cannot be named!")
-        }
-
-        return entry.serialize(format)
-    }
-}
-
-class VersionedDataProperty extends DataProperty<any> {
+export class VersionedDataProperty extends DataProperty<any> {
     protected propertyMap: Map<(format: DatapackFormat) => boolean, DataProperty<any>>
 
     addProperty(condition: (format: DatapackFormat) => boolean, dataProperty: DataProperty<any>): void {
