@@ -1,7 +1,7 @@
 abstract class DataProperty<T> {
-    name: string
+    name?: string
 
-    constructor(name: string = "") {
+    constructor(name?: string) {
         this.name = name
     }
 
@@ -32,7 +32,7 @@ class ElementDataProperty<T extends DataElement> extends StandardDataProperty<T>
     serialize(format: DatapackFormat): any {
         let output: string = ""
 
-        if (this.name.length > 0) {
+        if (this.name != "") {
             output = this.name + ":"
         }
 
@@ -44,7 +44,7 @@ class ElementDataProperty<T extends DataElement> extends StandardDataProperty<T>
 class ObjectDataProperty extends DataProperty<DataProperty<any>[]> {
     properties: DataProperty<any>[]
 
-    constructor(name: string = "") {
+    constructor(name?: string) {
         super(name)
         this.properties = new Array<DataProperty<any>>
     }
@@ -60,7 +60,7 @@ class ObjectDataProperty extends DataProperty<DataProperty<any>[]> {
     serialize(format: DatapackFormat): any {
         let output: string = ""
 
-        if (this.name != "") {
+        if (this.name) {
             output = this.name + ":"
         }
 
@@ -83,7 +83,7 @@ class ObjectDataProperty extends DataProperty<DataProperty<any>[]> {
 class ArrayDataProperty<T> extends DataProperty<T[]> {
     entries: T[]
 
-    constructor(name: string = "") {
+    constructor(name?: string) {
         super(name)
         this.entries = new Array<T>
     }
