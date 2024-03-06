@@ -1,12 +1,15 @@
 abstract class DataElement {
     name: string
-    properties: CompoundDataProperty
+    properties: ObjectDataProperty
 
     constructor(name: string) {
         this.name = name
+        this.populateProperties()
     }
 
-    abstract serialize(): object
+    abstract populateProperties(): void
+
+    abstract serialize(format: DatapackFormat): object
     abstract deserialize(json:object): void
 }
 
