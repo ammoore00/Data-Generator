@@ -1,28 +1,38 @@
 import { DatapackFormat } from "../../util/version_util"
+import { DataCategories } from "./data_categories"
 import { Serializable, SerializableArray } from "./serializables"
 
-export abstract class DataProperty<T extends Serializable> {
-    type: Serializable
+export abstract class DataProperty<T extends Serializable> extends Serializable {
     name?: string
+    optional: boolean
 
-    constructor(type: Serializable, name?: string) {
+    constructor(category: string, name?: string) {
+        super(category)
         this.name = name
-        this.type = type
+        this.optional = false
     }
 
-    abstract getValue(): T
+    abstract getValue(): T | undefined
     abstract serialize(format: DatapackFormat): any
+
+    setOptional(): DataProperty<T> {
+        this.optional = true
+        return this
+    }
 }
 
 export class StandardDataProperty<T extends Serializable> extends DataProperty<T> {
-    value: T
+    value?: T
 
-    constructor(type: Serializable, defaultValue: T, name?: string) {
-        super(type, name)
-        this.value = defaultValue
+    constructor(defaultValue: T | string, name?: string) {
+        super(defaultValue instanceof Serializable ? defaultValue.category : defaultValue, name)
+
+        if (defaultValue instanceof Serializable) {
+            this.value = defaultValue
+        }
     }
 
-    getValue(): T {
+    getValue(): T | undefined {
         return this.value
     }
 
@@ -33,7 +43,7 @@ export class StandardDataProperty<T extends Serializable> extends DataProperty<T
             output = this.name + ":"
         }
 
-        output += this.value.serialize(format)
+        output += this.value?.serialize(format)
         return output
     }
 }
@@ -41,13 +51,14 @@ export class StandardDataProperty<T extends Serializable> extends DataProperty<T
 export class ObjectDataProperty extends DataProperty<SerializableArray<DataProperty<any>>> {
     properties: DataProperty<any>[]
 
-    constructor(type: Serializable, name?: string) {
-        super(type, name)
+    constructor(name?: string) {
+        super(DataCategories.NONE, name)
         this.properties = new Array<DataProperty<any>>
     }
 
-    addProperty(property: DataProperty<any>): void {
+    addProperty(property: DataProperty<any>): ObjectDataProperty {
         this.properties.push(property)
+        return this
     }
 
     getValue(): SerializableArray<DataProperty<any>> {
@@ -81,8 +92,8 @@ export class ObjectDataProperty extends DataProperty<SerializableArray<DataPrope
 export class ArrayDataProperty<T extends Serializable> extends DataProperty<SerializableArray<T>> {
     entries: T[]
 
-    constructor(type: Serializable, name?: string) {
-        super(type, name)
+    constructor(name?: string) {
+        super(DataCategories.PRIMITIVE.ARRAY, name)
         this.entries = new Array<T>
     }
 
@@ -108,18 +119,13 @@ export class ArrayDataProperty<T extends Serializable> extends DataProperty<Seri
                 throw new Error("Sub-properties of array data property cannot be named!")
             }
     
-            entry.serialize(format)
-            output += this.serlializeEntry(entry, format) + ",\n"
+            output += entry.serialize(format) + ",\n"
         }
 
         output = output.slice(0, -1) // Remove the trailing comma
         output += "]"
 
         return output
-    }
-
-    serlializeEntry(entry: T, format: DatapackFormat): any {
-        return "" + entry
     }
 }
 
