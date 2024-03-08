@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use crate::data::datapack::DatapackFormat;
 use crate::data::datapack::DatapackFormat::{FORMAT10, FORMAT12, FORMAT15, FORMAT18, FORMAT26, FORMAT6, FORMAT7, FORMAT8, FORMAT9};
-use crate::data::elements::element::DataElement;
+use crate::data::elements::element::NamedDataElement;
+use crate::data::util::ResourceLocation;
 
 #[derive(Debug)]
 pub struct CarverElement {
@@ -12,7 +13,7 @@ impl CarverElement {
 
 }
 
-impl DataElement for CarverElement {
+impl NamedDataElement for CarverElement {
     fn serialize(&self, format: DatapackFormat) -> &'static str {
         use crate::data::datapack::DatapackFormat::*;
         match format {
@@ -24,7 +25,11 @@ impl DataElement for CarverElement {
         todo!()
     }
 
-    fn deserialize(&self, format: DatapackFormat, json: &str) {
+    fn deserialize(name: ResourceLocation, format: DatapackFormat, json: &str) -> serde_json::Result<Box<Self>> {
+        todo!()
+    }
+
+    fn add_data(&mut self, format: DatapackFormat, json: &str) {
         todo!()
     }
 }
@@ -33,7 +38,7 @@ impl DataElement for CarverElement {
 //------ Carver Data Storage ------//
 /////////////////////////////////////
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct CarverData {
 
 }

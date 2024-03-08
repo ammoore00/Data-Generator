@@ -3,92 +3,89 @@ use strum_macros::EnumString;
 use std::default::Default;
 use crate::data::datapack::DatapackFormat;
 use crate::data::elements::carver::CarverData;
-use crate::data::elements::element::{DataElement, VersionedData};
-use crate::data::util::{BlockState, ItemNBT, ItemStack, ResourceLocation};
+use crate::data::elements::element::NamedDataElement;
+use crate::data::util::{BlockState, ItemStack, ResourceLocation};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct BiomeElement {
     name: ResourceLocation,
 
-    // Data which is always the same for all formats
-    temperature: f32,
-    temperature_modifier: TemperatureModifier,
-    downfall: f32,
-    effects: Effect,
-    carvers: CarverList,
-    features: FeatureList,
-
-    // Format-specific data
-    precipitation: Precipitation
+    // Data which is the same across all formats
+    shared_data: BiomeSharedData,
+    // Data which varies by format
+    format_6_data: Option<BiomeDataFormat6>,
+    format_8_data: Option<BiomeDataFormat8>,
+    format_10_data: Option<BiomeDataFormat10>,
+    format_12_data: Option<BiomeDataFormat12>
 }
 
 impl BiomeElement {
-
-}
-
-impl DataElement for BiomeElement {
-    fn serialize(&self, format: DatapackFormat) -> &'static str {
-        use DatapackFormat::*;
-        match format {
-            FORMAT6 | FORMAT7 => {}
-            FORMAT8 | FORMAT9 => {}
-            FORMAT10 => {}
-            FORMAT12 | FORMAT15 | FORMAT18 | FORMAT26 | FORMAT34 => {}
+    fn new(name: ResourceLocation,
+           shared_data:BiomeSharedData,
+           format_6_data: Option<BiomeDataFormat6>,
+           format_8_data: Option<BiomeDataFormat8>,
+           format_10_data: Option<BiomeDataFormat10>,
+           format_12_data: Option<BiomeDataFormat12>) -> Self
+    {
+        BiomeElement {
+            name,
+            shared_data,
+            format_6_data,
+            format_8_data,
+            format_10_data,
+            format_12_data,
         }
-        todo!()
     }
 
-    fn deserialize(&self, format: DatapackFormat, json: &str) {
-        todo!()
-    }
-}
-
-///////////////////////////////////////////
-//------ Biome Data Internal Types ------//
-///////////////////////////////////////////
-
-#[derive(Debug, Copy, Clone)]
-struct Precipitation {
-    has_precipitation: Option<bool>,
-    precipitation: Option<LegacyPrecipitationCategory>
-}
-
-impl VersionedData<PrecipitationVariant> for Precipitation {
-    fn get_value(&self, format: DatapackFormat) -> Option<PrecipitationVariant> {
-        if format >= DatapackFormat::FORMAT12 {
-            if let Some(has_precipitation) = self.has_precipitation {
-                Some(PrecipitationVariant::Boolean(has_precipitation))
+    fn from_single_format(name: ResourceLocation, shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
+        match format_data {
+            BiomeFormatData::Format6(data) => {
+                BiomeElement::new(name, shared_data, Some(data), None, None, None)
             }
-            else { None }
+            BiomeFormatData::Format8(data) => {
+                BiomeElement::new(name, shared_data, None, Some(data), None, None)
+            }
+            BiomeFormatData::Format10(data) => {
+                BiomeElement::new(name, shared_data, None, None, Some(data), None)
+            }
+            BiomeFormatData::Format12(data) => {
+                BiomeElement::new(name, shared_data, None, None, None, Some(data))
+            }
         }
-        else if let Some(precipitation) = self.precipitation {
-            Some(PrecipitationVariant::Legacy(precipitation))
-        }
-        else { None }
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-enum PrecipitationVariant {
-    Boolean(bool),
-    Legacy(LegacyPrecipitationCategory)
+impl NamedDataElement for BiomeElement {
+    fn serialize(&self, format: DatapackFormat) -> &'static str {
+        todo!()
+    }
+
+    fn deserialize(name: ResourceLocation, format: DatapackFormat, json: &str) -> serde_json::Result<Box<Self>> {
+        let shared_data: BiomeSharedData = serde_json::from_str(json)?;
+        let format_data: BiomeFormatData = serde_json::from_str(json)?;
+        Ok(Box::from(BiomeElement::from_single_format(name, shared_data, format_data)))
+    }
+
+    fn add_data(&mut self, format: DatapackFormat, json: &str) {
+        todo!()
+    }
 }
 
 //////////////////////////////////////////
 //------ Biome Data Serialization ------//
 //////////////////////////////////////////
 
-#[derive(Debug)]
-pub enum BiomeData {
-    Format12(BiomeDataFormat12),
-    Format10(BiomeDataFormat10),
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum BiomeFormatData {
+    Format6(BiomeDataFormat6),
     Format8(BiomeDataFormat8),
-    Format6(BiomeDataFormat6)
+    Format10(BiomeDataFormat10),
+    Format12(BiomeDataFormat12)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BiomeDataFormat12 {
-    has_precipitation: bool,
+pub struct BiomeSharedData {
     temperature: f32,
     #[serde(default)]
     temperature_modifier: TemperatureModifier,
@@ -98,6 +95,11 @@ pub struct BiomeDataFormat12 {
     features: FeatureList,
     #[serde(default)]
     creature_spawn_probability: Option<f32>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BiomeDataFormat12 {
+    has_precipitation: bool,
     // TODO: spawners entry and data
     // TODO: spawn costs
 }
@@ -105,15 +107,6 @@ pub struct BiomeDataFormat12 {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BiomeDataFormat10 {
     precipitation: LegacyPrecipitationCategory,
-    temperature: f32,
-    #[serde(default)]
-    temperature_modifier: TemperatureModifier,
-    downfall: f32,
-    effects: Effect,
-    carvers: CarverList,
-    features: FeatureList,
-    #[serde(default)]
-    creature_spawn_probability: Option<f32>
     // TODO: spawners entry and data
     // TODO: spawn costs
 }
@@ -121,15 +114,6 @@ pub struct BiomeDataFormat10 {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BiomeDataFormat8 {
     precipitation: LegacyPrecipitationCategory,
-    temperature: f32,
-    #[serde(default)]
-    temperature_modifier: TemperatureModifier,
-    downfall: f32,
-    effects: Effect,
-    carvers: CarverList,
-    features: FeatureList,
-    #[serde(default)]
-    creature_spawn_probability: Option<f32>
     // TODO: spawners entry and data
     // TODO: spawn costs
     // TODO: biome category
@@ -141,15 +125,6 @@ pub struct BiomeDataFormat6 {
     depth: i32,
     scale: i32,
     precipitation: LegacyPrecipitationCategory,
-    temperature: f32,
-    #[serde(default)]
-    temperature_modifier: TemperatureModifier,
-    downfall: f32,
-    effects: Effect,
-    carvers: CarverList,
-    placed_features: FeatureList,
-    #[serde(default)]
-    creature_spawn_probability: Option<f32>
     // TODO: spawners entry and data
     // TODO: spawn costs
     // TODO: biome category
@@ -201,7 +176,7 @@ pub enum LegacyPrecipitationCategory {
 }
 impl Default for LegacyPrecipitationCategory { fn default() -> Self { LegacyPrecipitationCategory::Rain } }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Effect {
     fog_color: i32,
     sky_color: i32,
@@ -218,7 +193,7 @@ struct Effect {
     // TODO: Rest of spec
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
 enum Particle {
     #[serde(rename = "block")]
@@ -270,13 +245,13 @@ enum VibrationPositionSource {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct CarverList {
     air: Carver,
     liquid: Carver
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 enum Carver {
     ID(ResourceLocation),

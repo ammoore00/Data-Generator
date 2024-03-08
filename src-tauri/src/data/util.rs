@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockState {
     #[serde(rename = "Name")]
     name: ResourceLocation,
@@ -10,7 +10,7 @@ pub struct BlockState {
     properties: Option<Value>
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ItemStack {
     id: ResourceLocation,
     #[serde(rename = "Count")]
@@ -18,7 +18,7 @@ pub struct ItemStack {
     tag: ItemNBT
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ItemNBT {
     Format34 {
@@ -28,7 +28,7 @@ pub enum ItemNBT {
     Format26(Value)
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceLocation {
     // TODO: custom serialization logic
     namespace: String,
