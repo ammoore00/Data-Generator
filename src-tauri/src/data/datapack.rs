@@ -1,4 +1,11 @@
-#[derive(PartialEq,PartialOrd)]
+use serde::{Deserialize, Serialize};
+use crate::data::datapack::DatapackFormat::FORMAT26;
+
+//////////////////////////////////
+//------ Datapack Formats ------//
+//////////////////////////////////
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum DatapackFormat {
     FORMAT6 = 0,
     FORMAT7,
@@ -8,7 +15,8 @@ pub enum DatapackFormat {
     FORMAT12,
     FORMAT15,
     FORMAT18,
-    FORMAT26
+    FORMAT26,
+    FORMAT34
 }
 
 impl DatapackFormat {
@@ -24,6 +32,47 @@ impl DatapackFormat {
             FORMAT15 => [(20, 0), (20, 1)],
             FORMAT18 => [(20, 2), (20, 2)],
             FORMAT26 => [(20, 3), (20, 4)],
+            FORMAT34 => [(20, 5), (20, 5)],
         }
+    }
+}
+
+///////////////////////////////
+//------ Datapack Info ------//
+///////////////////////////////
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PackInfo {
+    pack: Pack,
+    overlays: Overlays
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Pack {
+    pack_format: i32,
+    #[serde(default)]
+    supported_formats: Option<FormatRange>,
+    description: String
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Overlays {
+    entries: Vec<OverlayFormatEntry>
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct OverlayFormatEntry {
+    formats: FormatRange,
+    directory: String
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+enum FormatRange {
+    Exact(i32),
+    Range((i32, i32)),
+    Object {
+        min_inclusive: i32,
+        max_include: i32
     }
 }

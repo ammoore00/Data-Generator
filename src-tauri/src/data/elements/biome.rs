@@ -3,34 +3,80 @@ use strum_macros::EnumString;
 use std::default::Default;
 use crate::data::datapack::DatapackFormat;
 use crate::data::elements::carver::CarverData;
-use crate::data::elements::element::Element;
-use crate::data::util::{BlockState, ItemNBT, ResourceLocation};
+use crate::data::elements::element::{DataElement, VersionedData};
+use crate::data::util::{BlockState, ItemNBT, ItemStack, ResourceLocation};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct BiomeElement {
+    name: ResourceLocation,
 
+    // Data which is always the same for all formats
+    temperature: f32,
+    temperature_modifier: TemperatureModifier,
+    downfall: f32,
+    effects: Effect,
+    carvers: CarverList,
+    features: FeatureList,
+
+    // Format-specific data
+    precipitation: Precipitation
 }
 
 impl BiomeElement {
 
 }
 
-impl Element for BiomeElement {
-    fn serialize(format: DatapackFormat) -> &'static str {
+impl DataElement for BiomeElement {
+    fn serialize(&self, format: DatapackFormat) -> &'static str {
         use DatapackFormat::*;
         match format {
             FORMAT6 | FORMAT7 => {}
             FORMAT8 | FORMAT9 => {}
             FORMAT10 => {}
-            FORMAT12 | FORMAT15 | FORMAT18 | FORMAT26 => {}
+            FORMAT12 | FORMAT15 | FORMAT18 | FORMAT26 | FORMAT34 => {}
         }
+        todo!()
+    }
+
+    fn deserialize(&self, format: DatapackFormat, json: &str) {
         todo!()
     }
 }
 
-////////////////////////////////////
-//------ Biome Data Storage ------//
-////////////////////////////////////
+///////////////////////////////////////////
+//------ Biome Data Internal Types ------//
+///////////////////////////////////////////
+
+#[derive(Debug, Copy, Clone)]
+struct Precipitation {
+    has_precipitation: Option<bool>,
+    precipitation: Option<LegacyPrecipitationCategory>
+}
+
+impl VersionedData<PrecipitationVariant> for Precipitation {
+    fn get_value(&self, format: DatapackFormat) -> Option<PrecipitationVariant> {
+        if format >= DatapackFormat::FORMAT12 {
+            if let Some(has_precipitation) = self.has_precipitation {
+                Some(PrecipitationVariant::Boolean(has_precipitation))
+            }
+            else { None }
+        }
+        else if let Some(precipitation) = self.precipitation {
+            Some(PrecipitationVariant::Legacy(precipitation))
+        }
+        else { None }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum PrecipitationVariant {
+    Boolean(bool),
+    Legacy(LegacyPrecipitationCategory)
+}
+
+//////////////////////////////////////////
+//------ Biome Data Serialization ------//
+//////////////////////////////////////////
 
 #[derive(Debug)]
 pub enum BiomeData {
@@ -58,7 +104,7 @@ pub struct BiomeDataFormat12 {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BiomeDataFormat10 {
-    precipitation: Precipitation,
+    precipitation: LegacyPrecipitationCategory,
     temperature: f32,
     #[serde(default)]
     temperature_modifier: TemperatureModifier,
@@ -74,7 +120,7 @@ pub struct BiomeDataFormat10 {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BiomeDataFormat8 {
-    precipitation: Precipitation,
+    precipitation: LegacyPrecipitationCategory,
     temperature: f32,
     #[serde(default)]
     temperature_modifier: TemperatureModifier,
@@ -94,7 +140,7 @@ pub struct BiomeDataFormat6 {
     player_spawn_friendly: bool,
     depth: i32,
     scale: i32,
-    precipitation: Precipitation,
+    precipitation: LegacyPrecipitationCategory,
     temperature: f32,
     #[serde(default)]
     temperature_modifier: TemperatureModifier,
@@ -111,13 +157,12 @@ pub struct BiomeDataFormat6 {
     // TODO: structure starts
 }
 
-/////////////////////////////////////////
-//------ Biome Data Helper Types ------//
-/////////////////////////////////////////
+///////////////////////////////////////////////////////
+//------ Biome Data Serialization Helper Types ------//
+///////////////////////////////////////////////////////
 
-#[derive(Debug, Serialize, Deserialize, EnumString)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, EnumString)]
 pub enum TemperatureModifier {
-    #[strum(default)]
     #[strum(to_string = "translate.biome.temperature_modifier.none")]
     #[serde(alias = "none")]
     None,
@@ -127,9 +172,8 @@ pub enum TemperatureModifier {
 }
 impl Default for TemperatureModifier { fn default() -> Self { TemperatureModifier::None } }
 
-#[derive(Debug, Serialize, Deserialize, EnumString)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, EnumString)]
 pub enum GrassColorModifier {
-    #[strum(default)]
     #[strum(to_string = "translate.biome.grass_color_modifier.none")]
     #[serde(alias = "none")]
     None,
@@ -143,8 +187,8 @@ pub enum GrassColorModifier {
 impl Default for GrassColorModifier { fn default() -> Self { GrassColorModifier::None } }
 
 // Used until Format 10
-#[derive(Debug, Serialize, Deserialize, EnumString)]
-pub enum Precipitation {
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, EnumString)]
+pub enum LegacyPrecipitationCategory {
     #[strum(to_string = "translate.biome.temperature_modifier.none")]
     #[serde(alias = "none")]
     None,
@@ -155,9 +199,9 @@ pub enum Precipitation {
     #[serde(alias = "snow")]
     Snow
 }
-impl Default for Precipitation { fn default() -> Self { Precipitation::None } }
+impl Default for LegacyPrecipitationCategory { fn default() -> Self { LegacyPrecipitationCategory::Rain } }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 struct Effect {
     fog_color: i32,
     sky_color: i32,
@@ -174,7 +218,7 @@ struct Effect {
     // TODO: Rest of spec
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
 enum Particle {
     #[serde(rename = "block")]
@@ -184,12 +228,7 @@ enum Particle {
     #[serde(rename = "falling_dust")]
     FallingDust(BlockState),
     #[serde(rename = "item")]
-    Item {
-        id: ResourceLocation,
-        #[serde(rename = "Count")]
-        count: i32,
-        tag: ItemNBT
-    },
+    Item(ItemStack), // TODO: This is versioned - figure out how to represent that
     #[serde(rename = "dust")]
     Dust {
         color: (f32, f32, f32),
@@ -217,7 +256,7 @@ enum Particle {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 enum VibrationPositionSource {
     #[serde(rename = "block")]
@@ -231,13 +270,13 @@ enum VibrationPositionSource {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 struct CarverList {
     air: Carver,
     liquid: Carver
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 enum Carver {
     ID(ResourceLocation),
@@ -245,7 +284,7 @@ enum Carver {
     LIST(Vec<CarverData>)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 struct FeatureList {
     // TODO: Implementation of the 11 steps - needs custom serialization
     // Feature placement has 11 steps (more info on wiki) in order
