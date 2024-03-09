@@ -1,3 +1,3 @@
 pub(crate) mod elements;
-mod datapack;
-mod util;
+pub(crate) mod datapack;
+pub(crate) mod util;

@@ -1,7 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::str::FromStr;
 use serde_json::json;
+use crate::data::datapack::DatapackFormat;
+use crate::data::elements::biome::BiomeElement;
+use crate::data::elements::element::NamedDataElement;
+use crate::data::util::ResourceLocation;
 
 mod data;
 
@@ -214,7 +219,7 @@ fn main() {
       "temperature": 0.8
     });
 
-  let plains: data::elements::biome::BiomeDataFormat12 = serde_json::from_value(test_biome).expect("Invalid biome");
+  let plains: BiomeElement = *BiomeElement::deserialize(ResourceLocation::from_str("minecraft:plains").expect("Resource location error"), DatapackFormat::FORMAT26, test_biome.to_string()).expect("Deserialization error");
 
   println!("{:?}", plains);
 

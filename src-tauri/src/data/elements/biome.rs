@@ -56,17 +56,17 @@ impl BiomeElement {
 }
 
 impl NamedDataElement for BiomeElement {
-    fn serialize(&self, format: DatapackFormat) -> &'static str {
+    fn serialize(&self, format: DatapackFormat) -> String {
         todo!()
     }
 
-    fn deserialize(name: ResourceLocation, format: DatapackFormat, json: &str) -> serde_json::Result<Box<Self>> {
-        let shared_data: BiomeSharedData = serde_json::from_str(json)?;
-        let format_data: BiomeFormatData = serde_json::from_str(json)?;
+    fn deserialize(name: ResourceLocation, format: DatapackFormat, json: String) -> serde_json::Result<Box<Self>> {
+        let shared_data: BiomeSharedData = serde_json::from_str(json.as_str())?;
+        let format_data: BiomeFormatData = serde_json::from_str(json.as_str())?;
         Ok(Box::from(BiomeElement::from_single_format(name, shared_data, format_data)))
     }
 
-    fn add_data(&mut self, format: DatapackFormat, json: &str) {
+    fn add_data(&mut self, format: DatapackFormat, json: String) {
         todo!()
     }
 }
@@ -91,7 +91,7 @@ pub struct BiomeSharedData {
     temperature_modifier: TemperatureModifier,
     downfall: f32,
     effects: Effect,
-    carvers: CarverList,
+    //carvers: CarverList,
     features: FeatureList,
     #[serde(default)]
     creature_spawn_probability: Option<f32>

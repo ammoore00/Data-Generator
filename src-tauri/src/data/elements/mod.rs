@@ -1,3 +1,3 @@
 pub(crate) mod biome;
 mod carver;
-mod element;
+pub(crate) mod element;

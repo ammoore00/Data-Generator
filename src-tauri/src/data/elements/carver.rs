@@ -14,7 +14,7 @@ impl CarverElement {
 }
 
 impl NamedDataElement for CarverElement {
-    fn serialize(&self, format: DatapackFormat) -> &'static str {
+    fn serialize(&self, format: DatapackFormat) -> String {
         use crate::data::datapack::DatapackFormat::*;
         match format {
             FORMAT6 => {}
@@ -25,11 +25,11 @@ impl NamedDataElement for CarverElement {
         todo!()
     }
 
-    fn deserialize(name: ResourceLocation, format: DatapackFormat, json: &str) -> serde_json::Result<Box<Self>> {
+    fn deserialize(name: ResourceLocation, format: DatapackFormat, json: String) -> serde_json::Result<Box<Self>> {
         todo!()
     }
 
-    fn add_data(&mut self, format: DatapackFormat, json: &str) {
+    fn add_data(&mut self, format: DatapackFormat, json: String) {
         todo!()
     }
 }
