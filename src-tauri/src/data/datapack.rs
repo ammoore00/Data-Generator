@@ -188,7 +188,7 @@ impl Datapack {
                 let mut biome_data = String::new();
                 file.read_to_string(&mut biome_data)?;
                 //println!("{}", biome_data);
-                let biome = *BiomeElement::deserialize(resource_location, &pack_info.pack.pack_format, biome_data.clone())?;
+                let biome = *BiomeElement::deserialize(resource_location, biome_data.clone())?;
 
                 data_holder.biomes.push(biome);
             }

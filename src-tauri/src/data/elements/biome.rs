@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use strum_macros::EnumString;
 use std::default::Default;
 use tauri::regex::Regex;
-use crate::data::datapack::DatapackFormat;
 use crate::data::elements::carver::CarverData;
 use crate::data::elements::element::NamedDataElement;
 use crate::data::util::{BlockState, ItemStack, ResourceLocation};
@@ -15,65 +14,25 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct BiomeElement {
     name: ResourceLocation,
-
-    // Data which is the same across all formats
     shared_data: BiomeSharedData,
-    // Data which varies by format
-    format_6_data: Option<BiomeDataFormat6>,
-    format_8_data: Option<BiomeDataFormat8>,
-    format_10_data: Option<BiomeDataFormat10>,
-    format_12_data: Option<BiomeDataFormat12>
+    format_data: BiomeFormatData
 }
 
 impl BiomeElement {
-    fn new(name: ResourceLocation,
-           shared_data:BiomeSharedData,
-           format_6_data: Option<BiomeDataFormat6>,
-           format_8_data: Option<BiomeDataFormat8>,
-           format_10_data: Option<BiomeDataFormat10>,
-           format_12_data: Option<BiomeDataFormat12>) -> Self
-    {
-        BiomeElement {
-            name,
-            shared_data,
-            format_6_data,
-            format_8_data,
-            format_10_data,
-            format_12_data,
-        }
-    }
-
-    fn from_single_format(name: ResourceLocation, shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
-        match format_data {
-            BiomeFormatData::Format6(data) => {
-                BiomeElement::new(name, shared_data, Some(data), None, None, None)
-            }
-            BiomeFormatData::Format8(data) => {
-                BiomeElement::new(name, shared_data, None, Some(data), None, None)
-            }
-            BiomeFormatData::Format10(data) => {
-                BiomeElement::new(name, shared_data, None, None, Some(data), None)
-            }
-            BiomeFormatData::Format12(data) => {
-                BiomeElement::new(name, shared_data, None, None, None, Some(data))
-            }
-        }
+    pub fn new(name: ResourceLocation, shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
+        BiomeElement{name, shared_data, format_data}
     }
 }
 
 impl NamedDataElement for BiomeElement {
-    fn serialize(&self, format: &DatapackFormat) -> String {
+    fn serialize(&self) -> String {
         todo!()
     }
 
-    fn deserialize(name: ResourceLocation, format: &DatapackFormat, json: String) -> serde_json::Result<Box<Self>> {
+    fn deserialize(name: ResourceLocation, json: String) -> serde_json::Result<Box<Self>> {
         let shared_data: BiomeSharedData = serde_json::from_str(json.as_str())?;
         let format_data: BiomeFormatData = serde_json::from_str(json.as_str())?;
-        Ok(Box::from(BiomeElement::from_single_format(name, shared_data, format_data)))
-    }
-
-    fn add_data(&mut self, format: &DatapackFormat, json: String) {
-        todo!()
+        Ok(Box::from(BiomeElement::new(name, shared_data, format_data)))
     }
 
     fn get_file_regex() -> &'static Regex {
@@ -88,10 +47,10 @@ impl NamedDataElement for BiomeElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 enum BiomeFormatData {
-    Format6(BiomeDataFormat6),
-    Format8(BiomeDataFormat8),
-    Format10(BiomeDataFormat10),
-    Format12(BiomeDataFormat12)
+    BiomeFormat6(BiomeDataFormat6),
+    BiomeFormat8(BiomeDataFormat8),
+    BiomeFormat10(BiomeDataFormat10),
+    BiomeFormat12(BiomeDataFormat12)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
