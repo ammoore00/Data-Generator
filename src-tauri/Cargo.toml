@@ -20,6 +20,7 @@ strum = "0.26"
 strum_macros = "0.26"
 
 zip = "0.6"
+lazy_static = "1.4.0"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

@@ -3811,6 +3811,7 @@ dependencies = [
 name = "worlddatagen"
 version = "0.0.0"
 dependencies = [
+ "lazy_static",
  "serde",
  "serde_json",
  "strum",

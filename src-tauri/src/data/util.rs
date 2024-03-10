@@ -1,6 +1,6 @@
-use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::regex::Regex;
@@ -40,17 +40,20 @@ pub struct ResourceLocation {
 }
 
 impl ResourceLocation {
-    fn new(namespace: String, id: String) -> Self {
+    pub(crate) fn new(namespace: String, id: String) -> Self {
         ResourceLocation { namespace, id }
     }
+}
+
+lazy_static! {
+    static ref RESOURCE_LOCATION_REG: Regex = Regex::new(r"^[a-z0-9_.-]+:[a-z0-9_.-]+$").unwrap();
 }
 
 impl FromStr for ResourceLocation {
     type Err = ResourceLocationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let reg: Regex = Regex::new(r"^[a-z0-9_.-]+:[a-z0-9_.-]+$")?;
-        if reg.find(s).is_some() {
+        if RESOURCE_LOCATION_REG.find(s).is_some() {
             let split: Vec<String> = s.split(":").map(|s| s.to_string()).collect();
 
             Ok(ResourceLocation {

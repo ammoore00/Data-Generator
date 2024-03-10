@@ -1,12 +1,18 @@
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumString;
 use std::default::Default;
+use tauri::regex::Regex;
 use crate::data::datapack::DatapackFormat;
 use crate::data::elements::carver::CarverData;
 use crate::data::elements::element::NamedDataElement;
 use crate::data::util::{BlockState, ItemStack, ResourceLocation};
 
-#[derive(Debug)]
+lazy_static! {
+    static ref BIOME_REG: Regex = Regex::new(r"data/[a-z0-9_.-]+/worldgen/biome/([a-z0-9/_.-]+)\.json").unwrap();
+}
+
+#[derive(Debug, Clone)]
 pub struct BiomeElement {
     name: ResourceLocation,
 
@@ -56,18 +62,22 @@ impl BiomeElement {
 }
 
 impl NamedDataElement for BiomeElement {
-    fn serialize(&self, format: DatapackFormat) -> String {
+    fn serialize(&self, format: &DatapackFormat) -> String {
         todo!()
     }
 
-    fn deserialize(name: ResourceLocation, format: DatapackFormat, json: String) -> serde_json::Result<Box<Self>> {
+    fn deserialize(name: ResourceLocation, format: &DatapackFormat, json: String) -> serde_json::Result<Box<Self>> {
         let shared_data: BiomeSharedData = serde_json::from_str(json.as_str())?;
         let format_data: BiomeFormatData = serde_json::from_str(json.as_str())?;
         Ok(Box::from(BiomeElement::from_single_format(name, shared_data, format_data)))
     }
 
-    fn add_data(&mut self, format: DatapackFormat, json: String) {
+    fn add_data(&mut self, format: &DatapackFormat, json: String) {
         todo!()
+    }
+
+    fn get_file_regex() -> &'static Regex {
+        &BIOME_REG
     }
 }
 
@@ -75,7 +85,7 @@ impl NamedDataElement for BiomeElement {
 //------ Biome Data Serialization ------//
 //////////////////////////////////////////
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 enum BiomeFormatData {
     Format6(BiomeDataFormat6),
@@ -84,7 +94,7 @@ enum BiomeFormatData {
     Format12(BiomeDataFormat12)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeSharedData {
     temperature: f32,
     #[serde(default)]
@@ -100,23 +110,23 @@ pub struct BiomeSharedData {
     // TODO: spawn costs
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat12 {
     has_precipitation: bool
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat10 {
     precipitation: LegacyPrecipitationCategory
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat8 {
     precipitation: LegacyPrecipitationCategory,
     // TODO: biome category
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat6 {
     player_spawn_friendly: bool,
     depth: i32,
@@ -183,8 +193,8 @@ struct Effect {
     grass_color: Option<i32>,
     #[serde(default)]
     grass_color_modifier: GrassColorModifier,
-    #[serde(default)]
-    particle: Option<Particle>
+    //#[serde(default)]
+    //particle: Option<Particle>
     // TODO: Rest of spec
 }
 
