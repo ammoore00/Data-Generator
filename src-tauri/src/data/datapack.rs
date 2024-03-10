@@ -4,6 +4,7 @@ use std::io::Read;
 use lazy_static::lazy_static;
 use serde::{de, Deserialize, Deserializer, Serialize};
 use serde::de::Error;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use tauri::regex::Regex;
 use zip::result::ZipError;
 use crate::data::datapack::DatapackFormat::{FORMAT10, FORMAT12, FORMAT15, FORMAT18, FORMAT26, FORMAT34, FORMAT6, FORMAT7, FORMAT8, FORMAT9};
@@ -16,8 +17,8 @@ use crate::io::json_io::{get_zip_as_archive, read_file_from_archive};
 //------ Datapack Formats ------//
 //////////////////////////////////
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
-#[serde(untagged)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum DatapackFormat {
     FORMAT6 = 6,
     FORMAT7 = 7,
@@ -47,22 +48,6 @@ impl DatapackFormat {
             FORMAT34 => [(20, 5), (20, 5)],
         }
     }
-
-    fn from_format_number(number: u64) -> Option<Self> {
-        match number {
-            6 => Some(FORMAT6),
-            7 => Some(FORMAT7),
-            8 => Some(FORMAT8),
-            9 => Some(FORMAT9),
-            10 => Some(FORMAT10),
-            12 => Some(FORMAT12),
-            15 => Some(FORMAT15),
-            18 => Some(FORMAT18),
-            26 => Some(FORMAT26),
-            34 => Some(FORMAT34),
-            _ => None
-        }
-    }
 }
 
 ///////////////////////////////
@@ -78,31 +63,10 @@ pub struct PackInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Pack {
-    #[serde(deserialize_with = "deserialize_pack_format")]
     pack_format: DatapackFormat,
     #[serde(default)]
     supported_formats: Option<FormatRange>,
     description: String
-}
-
-fn deserialize_pack_format<'de, D>(deserializer: D) -> Result<DatapackFormat, D::Error>
-where D: Deserializer<'de> {
-    struct PackFormatVisitor;
-
-    impl<'de> de::Visitor<'de> for PackFormatVisitor {
-        type Value = DatapackFormat;
-
-        fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-            formatter.write_str("an integer matching a valid pack format")
-        }
-
-        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-        where E: Error {
-            DatapackFormat::from_format_number(v).ok_or(E::custom("Invalid pack format number"))
-        }
-    }
-
-    deserializer.deserialize_u64(PackFormatVisitor)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
