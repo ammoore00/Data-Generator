@@ -91,31 +91,28 @@ pub struct BiomeSharedData {
     temperature_modifier: TemperatureModifier,
     downfall: f32,
     effects: Effect,
+    // TODO: Fix these categories
     //carvers: CarverList,
-    features: FeatureList,
+    //features: FeatureList,
     #[serde(default)]
     creature_spawn_probability: Option<f32>
+    // TODO: spawners entry and data
+    // TODO: spawn costs
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BiomeDataFormat12 {
-    has_precipitation: bool,
-    // TODO: spawners entry and data
-    // TODO: spawn costs
+    has_precipitation: bool
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BiomeDataFormat10 {
-    precipitation: LegacyPrecipitationCategory,
-    // TODO: spawners entry and data
-    // TODO: spawn costs
+    precipitation: LegacyPrecipitationCategory
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BiomeDataFormat8 {
     precipitation: LegacyPrecipitationCategory,
-    // TODO: spawners entry and data
-    // TODO: spawn costs
     // TODO: biome category
 }
 
@@ -125,8 +122,6 @@ pub struct BiomeDataFormat6 {
     depth: i32,
     scale: i32,
     precipitation: LegacyPrecipitationCategory,
-    // TODO: spawners entry and data
-    // TODO: spawn costs
     // TODO: biome category
     // TODO: surface builder
     // TODO: structure starts
