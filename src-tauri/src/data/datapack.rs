@@ -7,12 +7,13 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::Error;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use tauri::regex::{Captures, Regex};
+use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::FORMAT18;
 use crate::data::elements::biome::BiomeElement;
 use crate::data::elements::element::NamedDataElement;
-use crate::data::util::ResourceLocation;
+use crate::data::util::{ResourceLocation, Text};
 
 //////////////////////////////////
 //------ Datapack Formats ------//
@@ -71,7 +72,7 @@ struct Pack {
     pack_format: DatapackFormat,
     #[serde(default)]
     supported_formats: Option<FormatRange>,
-    description: String
+    description: PackDescription
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,15 +97,22 @@ enum FormatRange {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum PackDescription {
+    Text(Text),
+    Array(Vec<Text>)
+}
+
 ///////////////////////////////////
 //------ Datapack Handling ------//
 ///////////////////////////////////
 
 #[derive(Debug, Clone)]
-pub struct Datapack<'a> {
+pub struct Datapack {
     pack_info: PackInfo,
-    overlays: HashMap<String, DatapackData<'a>>,
-    data: DatapackData<'a>
+    overlays: HashMap<String, DatapackData>,
+    data: DatapackData
 }
 
 lazy_static! {
@@ -113,7 +121,7 @@ lazy_static! {
     static ref OVERLAY_REG: Regex = Regex::new(r"^([a-z0-9_-]+)/data/(.+)").unwrap();
 }
 
-impl Datapack<'_> {
+impl Datapack {
     fn empty(pack_info: PackInfo) -> Self {
         Datapack {
             pack_info,
@@ -134,14 +142,13 @@ impl Datapack<'_> {
 
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
-            let mut name = file.name();
+            let name = file.name().to_owned();
 
             let mut current_data = &mut datapack.data;
             let mut overlay: Option<&str> = None;
 
-            if let Some(overlay_cap) = OVERLAY_REG.captures(name) {
+            if let Some(overlay_cap) = OVERLAY_REG.captures(&*name) {
                 overlay = Some(overlay_cap.get(1).unwrap().as_str());
-                name = overlay_cap.get(2).unwrap().as_str();
 
                 if let Some(overlay_data) = datapack.overlays.get_mut(overlay.unwrap()) {
                     current_data = overlay_data;
@@ -149,50 +156,60 @@ impl Datapack<'_> {
                 else {
                     datapack.overlays.insert(
                         String::from(overlay.unwrap()),
-                        DatapackData::empty(DataSource::Overlay(overlay.unwrap()))
+                        DatapackData::empty(DataSource::Overlay(String::from(overlay.unwrap())))
                     );
 
                     current_data = datapack.overlays.get_mut(overlay.unwrap()).unwrap()
                 }
             }
 
-            // Makes sure all files in data folder are in a valid namespace
-            if let Some(cap) = NAMESPACE_REG.captures(name) {
-                let namespace = cap.get(1).unwrap().clone().as_str();
-
-                // TODO: account for overlays - overlay data will be caught by the filename regexes
-                //       so it must be filtered out beforehand
-                if let Some(cap) = BiomeElement::get_file_regex().captures(name) {
-                    let id = cap.get(1).unwrap().clone().as_str();
-                    let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
-
-                    println!("{}", resource_location);
-
-                    let mut biome_data = String::new();
-                    file.read_to_string(&mut biome_data)?;
-                    let biome = *BiomeElement::deserialize(resource_location, &pack_info.pack.pack_format, biome_data.clone())?;
-
-                    current_data.biomes.push(biome);
-                }
-            }
-            // Ignore files outside the data folder (and the data folder itself)
-            else if let Some(_) = DATA_REG.find(name) {
-                return Err(DatapackError::Namespace(format!("Invalid namespace in \"{}\"! Only a-z, 0-9, '_', '-', '.' are allowed!", name)))
-            }
+            Self::import_data(&mut file, &pack_info, &mut current_data)?;
         }
 
         Ok(datapack)
     }
+
+    fn import_data(file: &mut ZipFile, pack_info: &PackInfo, data_holder: &mut DatapackData) -> Result<(), DatapackError> {
+        let name = file.name();
+
+        // Makes sure all files in data folder are in a valid namespace
+        if let Some(cap) = NAMESPACE_REG.captures(name) {
+            let namespace = cap.get(1).unwrap().clone().as_str();
+
+            if let Some(cap) = BiomeElement::get_file_regex().captures(file.name()) {
+                let id = cap.get(1).unwrap().clone().as_str();
+                let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
+
+                println!("{}", name);
+                println!("{}", resource_location);
+
+                let name_debug = name.to_owned();
+
+                let mut biome_data = String::new();
+                file.read_to_string(&mut biome_data)?;
+                //println!("{}", biome_data);
+                let biome = *BiomeElement::deserialize(resource_location, &pack_info.pack.pack_format, biome_data.clone())?;
+
+                data_holder.biomes.push(biome);
+            }
+        }
+        // Ignore files outside the data folder (and the data folder itself)
+        else if let Some(_) = DATA_REG.find(name) {
+            return Err(DatapackError::Namespace(format!("Invalid namespace in \"{}\"! Only a-z, 0-9, '_', '-', '.' are allowed!", name)))
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
-struct DatapackData<'a> {
-    source: DataSource<'a>,
+struct DatapackData {
+    source: DataSource,
 
     biomes: Vec<BiomeElement>
 }
 
-impl DatapackData<'_> {
+impl DatapackData {
     fn empty(source: DataSource) -> DatapackData {
         DatapackData {
             source,
@@ -207,9 +224,9 @@ impl DatapackData<'_> {
 }
 
 #[derive(Debug, Clone)]
-enum DataSource<'a> {
+enum DataSource {
     Root,
-    Overlay(&'a str)
+    Overlay(String)
 }
 
 #[derive(Debug)]

@@ -83,3 +83,13 @@ impl From<tauri::regex::Error> for ResourceLocationError {
         ResourceLocationError::Regex(format!("Error Creating regex: {}", value.to_string()))
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Text {
+    String(String),
+    Object {
+        text: String,
+        color: String
+    }
+}
