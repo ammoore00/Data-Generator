@@ -1,13 +1,14 @@
-use std::fmt::Formatter;
+use std::fs::File;
 use std::io;
 use std::io::Read;
 use lazy_static::lazy_static;
-use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::Error;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use tauri::regex::Regex;
+use tauri::regex::{Captures, Regex};
 use zip::result::ZipError;
-use crate::data::datapack::DatapackFormat::{FORMAT10, FORMAT12, FORMAT15, FORMAT18, FORMAT26, FORMAT34, FORMAT6, FORMAT7, FORMAT8, FORMAT9};
+use zip::ZipArchive;
+use crate::data::datapack::DatapackFormat::FORMAT18;
 use crate::data::elements::biome::BiomeElement;
 use crate::data::elements::element::NamedDataElement;
 use crate::data::util::ResourceLocation;
@@ -33,7 +34,7 @@ pub enum DatapackFormat {
 }
 
 impl DatapackFormat {
-    fn get_version_range(&self) -> [(i32, i32); 2] {
+    pub fn get_version_range(&self) -> [(i32, i32); 2] {
         use DatapackFormat::*;
         match *self {
             FORMAT6 => [(16, 2), (16, 5)],
@@ -47,6 +48,10 @@ impl DatapackFormat {
             FORMAT26 => [(20, 3), (20, 4)],
             FORMAT34 => [(20, 5), (20, 5)],
         }
+    }
+
+    pub fn supports_overlays(&self) -> bool {
+        *self >= FORMAT18
     }
 }
 
@@ -98,14 +103,14 @@ enum FormatRange {
 #[derive(Debug, Clone)]
 pub struct Datapack {
     pack_info: PackInfo,
-    overlays: Vec<DatapackFormat>,
-
-    biomes: Vec<BiomeElement>
+    overlays: Vec<DatapackData>,
+    data: DatapackData
 }
 
 lazy_static! {
     static ref NAMESPACE_REG: Regex = Regex::new(r"^data/([a-z0-9_.-]+)").unwrap();
     static ref DATA_REG: Regex = Regex::new(r"^data/.+").unwrap();
+    static ref OVERLAY_REG: Regex = Regex::new(r"^overlays/([a-z0-9_-]+)/(.+)").unwrap();
 }
 
 impl Datapack {
@@ -113,8 +118,7 @@ impl Datapack {
         Datapack {
             pack_info,
             overlays: Vec::new(),
-
-            biomes: Vec::new()
+            data: DatapackData::empty(DataSource::Root)
         }
     }
 
@@ -127,15 +131,27 @@ impl Datapack {
 
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
-            let name = file.name();
+            let mut name = file.name();
+
+            let data = &datapack.data;
+            let mut overlay: Option<&str> = None;
+
+            let overlap_cap = OVERLAY_REG.captures(name);
+
+            if overlap_cap.is_some() {
+                overlay = Some(get_string_from_capture(&overlap_cap.as_ref().unwrap(), 1));
+                name = get_string_from_capture(&overlap_cap.as_ref().unwrap(), 2);
+            }
 
             // Makes sure all files in data folder are in a valid namespace
             if let Some(cap) = NAMESPACE_REG.captures(name) {
-                let namespace = cap.get(1).unwrap().as_str().parse().unwrap();
+                let namespace = get_string_from_capture(&cap, 1);
 
+                // TODO: account for overlays - overlay data will be caught by the filename regexes
+                //       so it must be filtered out beforehand
                 if let Some(cap) = BiomeElement::get_file_regex().captures(name) {
-                    let id: String = cap.get(1).unwrap().as_str().parse().unwrap();
-                    let resource_location = ResourceLocation::new(namespace, id);
+                    let id = get_string_from_capture(&cap, 1);
+                    let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
 
                     println!("{}", resource_location);
 
@@ -143,7 +159,7 @@ impl Datapack {
                     file.read_to_string(&mut biome_data)?;
                     let biome = *BiomeElement::deserialize(resource_location, &pack_info.pack.pack_format, biome_data)?;
 
-                    datapack.biomes.push(biome);
+                    datapack.data.biomes.push(biome);
                 }
             }
             // Ignore files outside the data folder (and the data folder itself)
@@ -154,6 +170,33 @@ impl Datapack {
 
         Ok(datapack)
     }
+}
+
+#[derive(Debug, Clone)]
+struct DatapackData {
+    source: DataSource,
+
+    biomes: Vec<BiomeElement>
+}
+
+impl DatapackData {
+    fn empty(source: DataSource) -> Self {
+        DatapackData {
+            source,
+
+            biomes: Vec::new()
+        }
+    }
+
+    fn from_archive(archive: ZipArchive<File>, path: &str) -> Self {
+        todo!()
+    }
+}
+
+#[derive(Debug, Clone)]
+enum DataSource {
+    Root,
+    Overlay(String)
 }
 
 #[derive(Debug)]
@@ -179,4 +222,8 @@ impl From<serde_json::Error> for DatapackError {
     fn from(value: serde_json::Error) -> Self {
         DatapackError::Deserialize(format!("Error deserializing file: {}", value.to_string()))
     }
+}
+
+fn get_string_from_capture<'a>(cap: &'a Captures, index: i32) -> &'a str {
+    cap.get(1).unwrap().as_str()
 }

@@ -18,9 +18,6 @@ fn greet(name: &str) -> String {
 }
 
 fn main() {
-    let plains_biome: String = read_file_from_zip("data/1-20-4.zip", "data/minecraft/worldgen/biome/plains.json").unwrap();
-    let plains: BiomeElement = *BiomeElement::deserialize(ResourceLocation::from_str("minecraft:plains").expect("Resource location error"), &DatapackFormat::FORMAT26, plains_biome).expect("Deserialization error");
-
     let datapack_1_20_4 = Datapack::from_zip("data/1-20-4.zip").unwrap();
 
     println!("{:?}", datapack_1_20_4);
