@@ -6,7 +6,7 @@ use crate::data::datapack::DatapackFormat;
 use crate::data::elements::biome::BiomeElement;
 use crate::data::elements::element::NamedDataElement;
 use crate::data::util::ResourceLocation;
-use crate::io::json_io::read_file_as_string;
+use crate::io::json_io::{read_file_as_string, read_file_from_zip};
 
 mod data;
 mod io;
@@ -18,7 +18,7 @@ fn greet(name: &str) -> String {
 }
 
 fn main() {
-    let plains_biome: String = read_file_as_string("data/1-20/1-20-4/worldgen/biome/plains.json").unwrap();
+    let plains_biome: String = read_file_from_zip("data/1-20-4.zip", "data/minecraft/worldgen/biome/plains.json").unwrap();
     let plains: BiomeElement = *BiomeElement::deserialize(ResourceLocation::from_str("minecraft:plains").expect("Resource location error"), DatapackFormat::FORMAT26, plains_biome).expect("Deserialization error");
 
     println!("{:?}", plains);
