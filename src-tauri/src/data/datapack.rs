@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -12,7 +13,6 @@ use crate::data::datapack::DatapackFormat::FORMAT18;
 use crate::data::elements::biome::BiomeElement;
 use crate::data::elements::element::NamedDataElement;
 use crate::data::util::ResourceLocation;
-use crate::io::json_io::{get_zip_as_archive, read_file_from_archive};
 
 //////////////////////////////////
 //------ Datapack Formats ------//
@@ -101,31 +101,34 @@ enum FormatRange {
 ///////////////////////////////////
 
 #[derive(Debug, Clone)]
-pub struct Datapack {
+pub struct Datapack<'a> {
     pack_info: PackInfo,
-    overlays: Vec<DatapackData>,
-    data: DatapackData
+    overlays: HashMap<String, DatapackData<'a>>,
+    data: DatapackData<'a>
 }
 
 lazy_static! {
-    static ref NAMESPACE_REG: Regex = Regex::new(r"^data/([a-z0-9_.-]+)").unwrap();
-    static ref DATA_REG: Regex = Regex::new(r"^data/.+").unwrap();
-    static ref OVERLAY_REG: Regex = Regex::new(r"^overlays/([a-z0-9_-]+)/(.+)").unwrap();
+    static ref NAMESPACE_REG: Regex = Regex::new(r"data/([a-z0-9_.-]+)").unwrap();
+    static ref DATA_REG: Regex = Regex::new(r"data/.+").unwrap();
+    static ref OVERLAY_REG: Regex = Regex::new(r"^([a-z0-9_-]+)/data/(.+)").unwrap();
 }
 
-impl Datapack {
+impl Datapack<'_> {
     fn empty(pack_info: PackInfo) -> Self {
         Datapack {
             pack_info,
-            overlays: Vec::new(),
+            overlays: HashMap::new(),
             data: DatapackData::empty(DataSource::Root)
         }
     }
 
     pub fn from_zip(filepath: &str) -> Result<Datapack, DatapackError> {
-        let mut archive = get_zip_as_archive(filepath)?;
-        let pack_info_str = read_file_from_archive(&mut archive, "pack.mcmeta")?;
-        let pack_info: PackInfo = serde_json::from_str(&*pack_info_str)?;
+        let zip_file = File::open(&filepath)?;
+        let mut archive = ZipArchive::new(zip_file)?;
+
+        let mut pack_info_str = String::new();
+        archive.by_name("pack.mcmeta")?.read_to_string(&mut pack_info_str)?;
+        let pack_info: PackInfo = serde_json::from_str(pack_info_str.clone().as_ref())?;
 
         let mut datapack = Datapack::empty(pack_info.clone());
 
@@ -133,33 +136,43 @@ impl Datapack {
             let mut file = archive.by_index(i)?;
             let mut name = file.name();
 
-            let data = &datapack.data;
+            let mut current_data = &mut datapack.data;
             let mut overlay: Option<&str> = None;
 
-            let overlap_cap = OVERLAY_REG.captures(name);
+            if let Some(overlay_cap) = OVERLAY_REG.captures(name) {
+                overlay = Some(overlay_cap.get(1).unwrap().as_str());
+                name = overlay_cap.get(2).unwrap().as_str();
 
-            if overlap_cap.is_some() {
-                overlay = Some(get_string_from_capture(&overlap_cap.as_ref().unwrap(), 1));
-                name = get_string_from_capture(&overlap_cap.as_ref().unwrap(), 2);
+                if let Some(overlay_data) = datapack.overlays.get_mut(overlay.unwrap()) {
+                    current_data = overlay_data;
+                }
+                else {
+                    datapack.overlays.insert(
+                        String::from(overlay.unwrap()),
+                        DatapackData::empty(DataSource::Overlay(overlay.unwrap()))
+                    );
+
+                    current_data = datapack.overlays.get_mut(overlay.unwrap()).unwrap()
+                }
             }
 
             // Makes sure all files in data folder are in a valid namespace
             if let Some(cap) = NAMESPACE_REG.captures(name) {
-                let namespace = get_string_from_capture(&cap, 1);
+                let namespace = cap.get(1).unwrap().clone().as_str();
 
                 // TODO: account for overlays - overlay data will be caught by the filename regexes
                 //       so it must be filtered out beforehand
                 if let Some(cap) = BiomeElement::get_file_regex().captures(name) {
-                    let id = get_string_from_capture(&cap, 1);
+                    let id = cap.get(1).unwrap().clone().as_str();
                     let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
 
                     println!("{}", resource_location);
 
                     let mut biome_data = String::new();
                     file.read_to_string(&mut biome_data)?;
-                    let biome = *BiomeElement::deserialize(resource_location, &pack_info.pack.pack_format, biome_data)?;
+                    let biome = *BiomeElement::deserialize(resource_location, &pack_info.pack.pack_format, biome_data.clone())?;
 
-                    datapack.data.biomes.push(biome);
+                    current_data.biomes.push(biome);
                 }
             }
             // Ignore files outside the data folder (and the data folder itself)
@@ -173,14 +186,14 @@ impl Datapack {
 }
 
 #[derive(Debug, Clone)]
-struct DatapackData {
-    source: DataSource,
+struct DatapackData<'a> {
+    source: DataSource<'a>,
 
     biomes: Vec<BiomeElement>
 }
 
-impl DatapackData {
-    fn empty(source: DataSource) -> Self {
+impl DatapackData<'_> {
+    fn empty(source: DataSource) -> DatapackData {
         DatapackData {
             source,
 
@@ -194,9 +207,9 @@ impl DatapackData {
 }
 
 #[derive(Debug, Clone)]
-enum DataSource {
+enum DataSource<'a> {
     Root,
-    Overlay(String)
+    Overlay(&'a str)
 }
 
 #[derive(Debug)]
@@ -222,8 +235,4 @@ impl From<serde_json::Error> for DatapackError {
     fn from(value: serde_json::Error) -> Self {
         DatapackError::Deserialize(format!("Error deserializing file: {}", value.to_string()))
     }
-}
-
-fn get_string_from_capture<'a>(cap: &'a Captures, index: i32) -> &'a str {
-    cap.get(1).unwrap().as_str()
 }

@@ -2,14 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::str::FromStr;
-use crate::data::datapack::{Datapack, DatapackFormat};
-use crate::data::elements::biome::BiomeElement;
+use crate::data::datapack::Datapack;
 use crate::data::elements::element::NamedDataElement;
-use crate::data::util::ResourceLocation;
-use crate::io::json_io::read_file_from_zip;
 
 mod data;
-mod io;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
