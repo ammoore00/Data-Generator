@@ -110,9 +110,9 @@ enum PackDescription {
 
 #[derive(Debug, Clone)]
 pub struct Datapack {
-    pack_info: PackInfo,
-    overlays: HashMap<String, DatapackData>,
-    data: DatapackData
+    pub pack_info: PackInfo,
+    pub overlays: HashMap<String, DatapackData>,
+    pub data: DatapackData
 }
 
 lazy_static! {
