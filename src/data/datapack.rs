@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::Error;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use regex::{Captures, Regex};
+use regex::Regex;
 use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
@@ -134,20 +134,28 @@ impl Datapack {
         let zip_file = File::open(&filepath)?;
         let mut archive = ZipArchive::new(zip_file)?;
 
+        // Load pack info
         let mut pack_info_str = String::new();
         archive.by_name("pack.mcmeta")?.read_to_string(&mut pack_info_str)?;
         let pack_info: PackInfo = serde_json::from_str(pack_info_str.clone().as_ref())?;
 
         let mut datapack = Datapack::empty(pack_info.clone());
 
+        // Iterate through files in the archive
+        // Must be done by index instead of iterator to allow mutable access to contents
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
             let name = file.name().to_owned();
 
+            // Used as the target location for where to load the current file data into
+            // Defaults to root data
             let mut current_data = &mut datapack.data;
             let mut overlay: Option<&str> = None;
 
+            // Is the current file part of the base data or the overlay?
             if let Some(overlay_cap) = OVERLAY_REG.captures(&*name) {
+                // If it is in an overlay, either get the existing overlay or make a new one with the
+                // overlay folder name obtained from the file path and then set that as the target data holder
                 overlay = Some(overlay_cap.get(1).unwrap().as_str());
 
                 if let Some(overlay_data) = datapack.overlays.get_mut(overlay.unwrap()) {
@@ -163,6 +171,7 @@ impl Datapack {
                 }
             }
 
+            // Load the actual file's data into the target data holder
             Self::import_data(&mut file, &pack_info, &mut current_data)?;
         }
 
@@ -183,8 +192,6 @@ impl Datapack {
                 println!("{}", name);
                 println!("{}", resource_location);
 
-                let name_debug = name.to_owned();
-
                 let mut biome_data = String::new();
                 file.read_to_string(&mut biome_data)?;
                 //println!("{}", biome_data);
@@ -193,7 +200,7 @@ impl Datapack {
                 data_holder.biomes.push(biome);
             }
         }
-        // Ignore files outside the data folder (and the data folder itself)
+        // Only error on data reg match to ignore files outside the data folder (and the data folder itself)
         else if let Some(_) = DATA_REG.find(name) {
             return Err(DatapackError::Namespace(format!("Invalid namespace in \"{}\"! Only a-z, 0-9, '_', '-', '.' are allowed!", name)))
         }
