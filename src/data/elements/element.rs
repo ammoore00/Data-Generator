@@ -1,4 +1,4 @@
-use tauri::regex::Regex;
+use regex::Regex;
 use crate::data::util::ResourceLocation;
 
 pub trait NamedDataElement {

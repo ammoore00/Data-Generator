@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumString;
 use std::default::Default;
-use tauri::regex::Regex;
+use regex::Regex;
 use crate::data::elements::carver::CarverData;
 use crate::data::elements::element::NamedDataElement;
 use crate::data::util::{BlockState, ItemStack, ResourceLocation};

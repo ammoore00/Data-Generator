@@ -3,7 +3,7 @@ use std::str::FromStr;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::regex::Regex;
+use regex::Regex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockState {
@@ -78,8 +78,8 @@ pub enum ResourceLocationError {
     Syntax(String)
 }
 
-impl From<tauri::regex::Error> for ResourceLocationError {
-    fn from(value: tauri::regex::Error) -> Self {
+impl From<regex::Error> for ResourceLocationError {
+    fn from(value: regex::Error) -> Self {
         ResourceLocationError::Regex(format!("Error Creating regex: {}", value.to_string()))
     }
 }

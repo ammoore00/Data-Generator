@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::Error;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use tauri::regex::{Captures, Regex};
+use regex::{Captures, Regex};
 use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;

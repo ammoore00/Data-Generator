@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::regex::Regex;
+use regex::Regex;
 use crate::data::elements::element::NamedDataElement;
 use crate::data::util::ResourceLocation;
 
