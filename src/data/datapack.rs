@@ -1,10 +1,10 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde::de::Error;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use regex::Regex;
 use zip::read::ZipFile;
@@ -12,7 +12,7 @@ use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::FORMAT18;
 use crate::data::elements::biome::BiomeElement;
-use crate::data::elements::element::{DataElement, NamedDataElement};
+use crate::data::elements::element::{DataElement, FileElement};
 use crate::data::util::{ResourceLocation, Text};
 
 //////////////////////////////////
@@ -56,64 +56,9 @@ impl DatapackFormat {
     }
 }
 
-///////////////////////////////
-//------ Datapack Info ------//
-///////////////////////////////
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PackInfo {
-    pack: Pack,
-    #[serde(default)]
-    overlays: Option<Overlays>
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Pack {
-    pack_format: DatapackFormat,
-    #[serde(default)]
-    supported_formats: Option<FormatRange>,
-    description: PackDescription
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Overlays {
-    entries: Vec<OverlayFormatEntry>
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct OverlayFormatEntry {
-    formats: FormatRange,
-    directory: String
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-enum FormatRange {
-    Exact(i32),
-    Range((i32, i32)),
-    Object {
-        min_inclusive: i32,
-        max_include: i32
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-enum PackDescription {
-    Text(Text),
-    Array(Vec<Text>)
-}
-
 ///////////////////////////////////
 //------ Datapack Handling ------//
 ///////////////////////////////////
-
-#[derive(Debug, Clone)]
-pub struct Datapack {
-    pub pack_info: PackInfo,
-    pub overlays: HashMap<String, DatapackData>,
-    pub data: DatapackData
-}
 
 lazy_static! {
     static ref NAMESPACE_REG: Regex = Regex::new(r"data/([a-z0-9_.-]+)").unwrap();
@@ -121,12 +66,21 @@ lazy_static! {
     static ref OVERLAY_REG: Regex = Regex::new(r"^([a-z0-9_-]+)/data/(.+)").unwrap();
 }
 
+//------------//
+
+#[derive(Debug, Clone)]
+pub struct Datapack {
+    pub pack_info: PackInfo,
+
+    biomes: HashMap<ResourceLocation, DataHolder<BiomeElement>>
+}
+
 impl Datapack {
     fn empty(pack_info: PackInfo) -> Self {
         Datapack {
             pack_info,
-            overlays: HashMap::new(),
-            data: DatapackData::empty(DataSource::Root)
+
+            biomes: HashMap::new()
         }
     }
 
@@ -145,40 +99,38 @@ impl Datapack {
         // Must be done by index instead of iterator to allow mutable access to contents
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
-            let name = file.name().to_owned();
 
-            // Used as the target location for where to load the current file data into
-            // Defaults to root data
-            let mut current_data = &mut datapack.data;
-            let mut overlay: Option<&str> = None;
-
-            // Is the current file part of the base data or the overlay?
-            if let Some(overlay_cap) = OVERLAY_REG.captures(&*name) {
-                // If it is in an overlay, either get the existing overlay or make a new one with the
-                // overlay folder name obtained from the file path and then set that as the target data holder
-                overlay = Some(overlay_cap.get(1).unwrap().as_str());
-
-                if let Some(overlay_data) = datapack.overlays.get_mut(overlay.unwrap()) {
-                    current_data = overlay_data;
-                }
-                else {
-                    datapack.overlays.insert(
-                        String::from(overlay.unwrap()),
-                        DatapackData::empty(DataSource::Overlay(String::from(overlay.unwrap())))
-                    );
-
-                    current_data = datapack.overlays.get_mut(overlay.unwrap()).unwrap()
-                }
-            }
-
-            // Load the actual file's data into the target data holder
-            Self::import_data(&mut file, &pack_info, &mut current_data)?;
+            let data_source = Self::get_data_source(&mut file, &datapack)?;
+            Self::import_data(&mut file, &mut datapack, data_source)?;
         }
 
         Ok(datapack)
     }
 
-    fn import_data(file: &mut ZipFile, pack_info: &PackInfo, data_holder: &mut DatapackData) -> Result<(), DatapackError> {
+    fn get_data_source(file: &mut ZipFile, datapack: &Datapack) -> Result<DataSource, DatapackError> {
+        let name = file.name().to_owned();
+
+        let mut data_source = DataSource::Root;
+        let mut overlay_directory: Option<&str> = None;
+
+        // Is the current file part of the base data or the overlay?
+        if let Some(overlay_cap) = OVERLAY_REG.captures(&*name) {
+            // If it is in an overlay, either get the existing overlay or make a new one with the
+            // overlay folder name obtained from the file path and then set that as the target data holder
+            overlay_directory = Some(overlay_cap.get(1).unwrap().as_str());
+
+            if let Some(overlay) = datapack.pack_info.get_overlay(overlay_directory.unwrap()) {
+                data_source = DataSource::Overlay(overlay);
+            }
+            else {
+                return Err(DatapackError::Overlay(format!("Overlay directory {} found, but not declared in pack info!", overlay_directory.unwrap())))
+            }
+        }
+
+        Ok(data_source)
+    }
+
+    fn import_data(file: &mut ZipFile, datapack: &mut Datapack, data_source: DataSource) -> Result<(), DatapackError> {
         let name = file.name();
 
         // Makes sure all files in data folder are in a valid namespace
@@ -195,9 +147,16 @@ impl Datapack {
                 let mut biome_data = String::new();
                 file.read_to_string(&mut biome_data)?;
                 //println!("{}", biome_data);
-                let biome = *BiomeElement::deserialize(resource_location, biome_data.clone())?;
+                let biome = *BiomeElement::deserialize(biome_data.clone())?;
 
-                data_holder.biomes.push(biome);
+                match datapack.biomes.entry(resource_location.clone()) {
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().add(data_source, Box::new(biome));
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(DataHolder::named(resource_location, data_source, biome));
+                    }
+                }
             }
         }
         // Only error on data reg match to ignore files outside the data folder (and the data folder itself)
@@ -209,84 +168,167 @@ impl Datapack {
     }
 }
 
+///////////////////////////////
+//------ Datapack Info ------//
+///////////////////////////////
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackInfo {
+    pack: Pack,
+    #[serde(default)]
+    overlays: Option<PackOverlays>
+}
+
+impl PackInfo {
+    fn get_overlay(&self, name: &str) -> Option<Overlay> {
+        if let Some(overlays) = &self.overlays {
+            return overlays.get_overlay(name)
+        }
+
+        None
+    }
+}
+
+//------------//
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Pack {
+    pack_format: DatapackFormat,
+    #[serde(default)]
+    supported_formats: Option<FormatRange>,
+    description: PackDescription
+}
+
+//------------//
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PackOverlays {
+    entries: Vec<Overlay>
+}
+
+impl PackOverlays {
+    fn get_overlay(&self, name: &str) -> Option<Overlay> {
+        for overlay in &self.entries {
+            if overlay.directory == name {
+                return Some(overlay.clone())
+            }
+        }
+
+        None
+    }
+}
+
+//------------//
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct Overlay {
+    formats: FormatRange,
+    directory: String
+}
+
+//------------//
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+enum FormatRange {
+    Exact(i32),
+    Range((i32, i32)),
+    Object {
+        min_inclusive: i32,
+        max_include: i32
+    }
+}
+
+//------------//
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum PackDescription {
+    Text(Text),
+    Array(Vec<Text>)
+}
+
 //////////////////
 // Data Storage //
 //////////////////
 
 #[derive(Debug, Clone)]
-struct DatapackData {
-    source: DataSource,
-
-    biomes: Vec<BiomeElement>
-}
-
-impl DatapackData {
-    fn empty(source: DataSource) -> DatapackData {
-        DatapackData {
-            source,
-
-            biomes: Vec::new()
-        }
-    }
-
-    fn from_archive(archive: ZipArchive<File>, path: &str) -> Self {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum DataSource {
     Root,
     Overlay(Overlay)
 }
 
+//------------//
+
 #[derive(Debug, Clone)]
-struct Overlay {
-    name: String,
-    min_format: DatapackFormat,
-    max_format: DatapackFormat
+pub struct DataHolder<T>
+where T: DataElement {
+    root_data: Option<T>,
+    data: HashMap<Overlay, T>,
+    resource_location: Option<ResourceLocation>
 }
 
-impl Overlay {
-    fn new(name: String, min_format: DatapackFormat, max_format: DatapackFormat) -> Self {
-        Overlay {
-            name,
-            min_format,
-            max_format
+impl<T: DataElement> DataHolder<T> {
+    pub fn anonymous(data_source: DataSource, data: T) -> Self {
+        match data_source {
+            DataSource::Root => {
+                DataHolder {
+                    root_data: Some(data),
+                    data: HashMap::new(),
+                    resource_location: None
+                }
+            }
+            DataSource::Overlay(overlay) => {
+                let mut data_holder = DataHolder {
+                    root_data: None,
+                    data: HashMap::new(),
+                    resource_location: None
+                };
+
+                data_holder.data.insert(overlay, data);
+
+                return data_holder
+            }
         }
     }
 
-    fn from_single_format(name: String, format: DatapackFormat) -> Self {
-        Self::new(name, format, format)
+    pub fn named(resource_location: ResourceLocation, data_source: DataSource, data: T) -> Self {
+        let mut data_holder = Self::anonymous(data_source, data);
+        data_holder.resource_location = Some(resource_location);
+        data_holder
     }
-}
 
-#[derive(Debug, Clone)]
-pub struct DataHolder {
-    data: HashMap<DataSource, DataElement>
-}
-
-impl DataHolder {
-    pub fn new() -> Self {
-        DataHolder {
-            data: HashMap::new()
+    pub fn add(&mut self, data_source: DataSource, data_element: Box<T>) {
+        match data_source {
+            DataSource::Root => {
+                self.root_data = Some(*data_element);
+            }
+            DataSource::Overlay(overlay) => {
+                self.data.insert(overlay, *data_element);
+            }
         }
     }
 
-    pub fn add(&mut self, data_source: DataSource, data_element: DataElement) {
-        self.data.entry(data_source).or_insert(data_element);
-    }
-
-    pub fn set(&mut self, data_source: DataSource, data_element: DataElement) {
-        self.data.insert(data_source, data_element);
-    }
-
-    pub fn get(&self, data_source: DataSource) -> Option<&DataElement> {
-        self.data.get(&data_source)
+    pub fn get(&self, data_source: DataSource) -> Option<&T> {
+        match data_source {
+            DataSource::Root => {
+                Option::from(&self.root_data)
+            }
+            DataSource::Overlay(overlay) => {
+                self.data.get(&overlay)
+            }
+        }
     }
 
     pub fn remove(&mut self, data_source: DataSource) {
-        self.data.remove(&data_source);
+        match data_source {
+            DataSource::Root => {
+                self.root_data = None;
+            }
+            DataSource::Overlay(overlay) => {
+                self.data.remove(&overlay);
+            }
+        }
     }
 }
 
@@ -298,7 +340,8 @@ impl DataHolder {
 pub enum DatapackError {
     File(String),
     Deserialize(String),
-    Namespace(String)
+    Namespace(String),
+    Overlay(String)
 }
 
 impl From<ZipError> for DatapackError {

@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use regex::Regex;
-use crate::data::elements::element::NamedDataElement;
-use crate::data::util::ResourceLocation;
+use crate::data::elements::element::{DataElement, FileElement};
 
 #[derive(Debug)]
 pub struct CarverElement {
@@ -12,15 +11,17 @@ impl CarverElement {
 
 }
 
-impl NamedDataElement for CarverElement {
+impl DataElement for CarverElement {
     fn serialize(&self) -> String {
         todo!()
     }
 
-    fn deserialize(name: ResourceLocation, json: String) -> serde_json::Result<Box<Self>> {
+    fn deserialize(json: String) -> serde_json::Result<Box<Self>> {
         todo!()
     }
+}
 
+impl FileElement for CarverElement {
     fn get_file_regex() -> &'static Regex {
         todo!()
     }

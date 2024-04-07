@@ -4,7 +4,7 @@ use strum_macros::EnumString;
 use std::default::Default;
 use regex::Regex;
 use crate::data::elements::carver::CarverData;
-use crate::data::elements::element::NamedDataElement;
+use crate::data::elements::element::{DataElement, FileElement};
 use crate::data::util::{BlockState, ItemStack, ResourceLocation};
 
 lazy_static! {
@@ -13,28 +13,29 @@ lazy_static! {
 
 #[derive(Debug, Clone)]
 pub struct BiomeElement {
-    name: ResourceLocation,
     shared_data: BiomeSharedData,
     format_data: BiomeFormatData
 }
 
 impl BiomeElement {
-    pub fn new(name: ResourceLocation, shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
-        BiomeElement{name, shared_data, format_data}
+    pub fn new(shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
+        BiomeElement{shared_data, format_data}
     }
 }
 
-impl NamedDataElement for BiomeElement {
+impl DataElement for BiomeElement {
     fn serialize(&self) -> String {
         todo!()
     }
 
-    fn deserialize(name: ResourceLocation, json: String) -> serde_json::Result<Box<Self>> {
+    fn deserialize(json: String) -> serde_json::Result<Box<Self>> {
         let shared_data: BiomeSharedData = serde_json::from_str(json.as_str())?;
         let format_data: BiomeFormatData = serde_json::from_str(json.as_str())?;
-        Ok(Box::from(BiomeElement::new(name, shared_data, format_data)))
+        Ok(Box::from(BiomeElement::new(shared_data, format_data)))
     }
+}
 
+impl FileElement for BiomeElement {
     fn get_file_regex() -> &'static Regex {
         &BIOME_REG
     }

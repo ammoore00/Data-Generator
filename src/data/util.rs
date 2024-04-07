@@ -32,7 +32,7 @@ pub enum ItemNBT {
     Format26(Value)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ResourceLocation {
     // TODO: custom serialization logic
     namespace: String,
