@@ -12,7 +12,7 @@ use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::FORMAT18;
 use crate::data::elements::biome::BiomeElement;
-use crate::data::elements::element::NamedDataElement;
+use crate::data::elements::element::{DataElement, NamedDataElement};
 use crate::data::util::{ResourceLocation, Text};
 
 //////////////////////////////////
@@ -209,6 +209,10 @@ impl Datapack {
     }
 }
 
+//////////////////
+// Data Storage //
+//////////////////
+
 #[derive(Debug, Clone)]
 struct DatapackData {
     source: DataSource,
@@ -230,11 +234,65 @@ impl DatapackData {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum DataSource {
     Root,
-    Overlay(String)
+    Overlay(Overlay)
 }
+
+#[derive(Debug, Clone)]
+struct Overlay {
+    name: String,
+    min_format: DatapackFormat,
+    max_format: DatapackFormat
+}
+
+impl Overlay {
+    fn new(name: String, min_format: DatapackFormat, max_format: DatapackFormat) -> Self {
+        Overlay {
+            name,
+            min_format,
+            max_format
+        }
+    }
+
+    fn from_single_format(name: String, format: DatapackFormat) -> Self {
+        Self::new(name, format, format)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DataHolder {
+    data: HashMap<DataSource, DataElement>
+}
+
+impl DataHolder {
+    pub fn new() -> Self {
+        DataHolder {
+            data: HashMap::new()
+        }
+    }
+
+    pub fn add(&mut self, data_source: DataSource, data_element: DataElement) {
+        self.data.entry(data_source).or_insert(data_element);
+    }
+
+    pub fn set(&mut self, data_source: DataSource, data_element: DataElement) {
+        self.data.insert(data_source, data_element);
+    }
+
+    pub fn get(&self, data_source: DataSource) -> Option<&DataElement> {
+        self.data.get(&data_source)
+    }
+
+    pub fn remove(&mut self, data_source: DataSource) {
+        self.data.remove(&data_source);
+    }
+}
+
+/////////////////
+// Error Types //
+/////////////////
 
 #[derive(Debug)]
 pub enum DatapackError {
