@@ -25,7 +25,7 @@ pub struct ItemStack {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ItemNBT {
-    Format34 {
+    Format35 {
         // TODO: implement new item component data standard
     },
     // TODO: Safer way of handling item NBT

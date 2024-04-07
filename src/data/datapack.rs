@@ -31,7 +31,7 @@ pub enum DatapackFormat {
     FORMAT15 = 15,
     FORMAT18 = 18,
     FORMAT26 = 26,
-    FORMAT34 = 34
+    FORMAT35 = 35
 }
 
 impl DatapackFormat {
@@ -47,7 +47,7 @@ impl DatapackFormat {
             FORMAT15 => [(20, 0), (20, 1)],
             FORMAT18 => [(20, 2), (20, 2)],
             FORMAT26 => [(20, 3), (20, 4)],
-            FORMAT34 => [(20, 5), (20, 5)],
+            FORMAT35 => [(20, 5), (20, 5)],
         }
     }
 
@@ -83,6 +83,8 @@ impl Datapack {
             biomes: HashMap::new()
         }
     }
+
+    //------ File Handling ------//
 
     pub fn from_zip(filepath: &str) -> Result<Datapack, DatapackError> {
         let zip_file = File::open(&filepath)?;
@@ -141,7 +143,7 @@ impl Datapack {
                 let id = cap.get(1).unwrap().clone().as_str();
                 let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
 
-                println!("{}", name);
+                //println!("{}", name);
                 println!("{}", resource_location);
 
                 let mut biome_data = String::new();
