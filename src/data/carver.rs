@@ -19,10 +19,6 @@ impl SerializableDataElement for CarverElement {
     fn deserialize(json: String) -> serde_json::Result<Box<Self>> {
         todo!()
     }
-
-    fn get_data_handler() -> Box<dyn DataHandler<Self>> {
-        todo!()
-    }
 }
 
 impl FileElement for CarverElement {

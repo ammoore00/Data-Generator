@@ -12,7 +12,7 @@ use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::FORMAT18;
-use crate::data::elements::biome::BiomeSerializableData;
+use crate::data::biome::BiomeSerializableData;
 use crate::data::util::{ResourceLocation, Text};
 
 //////////////////////////////////

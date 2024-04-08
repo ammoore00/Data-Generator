@@ -4,7 +4,7 @@ use strum_macros::EnumString;
 use std::default::Default;
 use regex::Regex;
 use crate::data::datapack::{SerializableDataElement, DataHandler, SerializableDataHolder, FileElement};
-use crate::data::elements::carver::CarverData;
+use crate::data::carver::CarverData;
 use crate::data::util::{BlockState, ItemStack, ResourceLocation};
 
 lazy_static! {
