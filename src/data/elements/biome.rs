@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use strum_macros::EnumString;
 use std::default::Default;
 use regex::Regex;
+use crate::data::datapack::{SerializableDataElement, DataHandler, SerializableDataHolder, FileElement};
 use crate::data::elements::carver::CarverData;
-use crate::data::elements::element::{DataElement, FileElement};
 use crate::data::util::{BlockState, ItemStack, ResourceLocation};
 
 lazy_static! {
@@ -12,18 +12,18 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone)]
-pub struct BiomeElement {
+pub struct BiomeSerializableData {
     shared_data: BiomeSharedData,
     format_data: BiomeFormatData
 }
 
-impl BiomeElement {
+impl BiomeSerializableData {
     pub fn new(shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
-        BiomeElement{shared_data, format_data}
+        BiomeSerializableData {shared_data, format_data}
     }
 }
 
-impl DataElement for BiomeElement {
+impl SerializableDataElement for BiomeSerializableData {
     fn serialize(&self) -> String {
         todo!()
     }
@@ -31,13 +31,35 @@ impl DataElement for BiomeElement {
     fn deserialize(json: String) -> serde_json::Result<Box<Self>> {
         let shared_data: BiomeSharedData = serde_json::from_str(json.as_str())?;
         let format_data: BiomeFormatData = serde_json::from_str(json.as_str())?;
-        Ok(Box::from(BiomeElement::new(shared_data, format_data)))
+        Ok(Box::from(BiomeSerializableData::new(shared_data, format_data)))
     }
 }
 
-impl FileElement for BiomeElement {
+impl FileElement for BiomeSerializableData {
     fn get_file_regex() -> &'static Regex {
         &BIOME_REG
+    }
+}
+
+////////////////////////////////////
+//------ Biome Data Storage ------//
+////////////////////////////////////
+
+struct BiomeDataHandler {
+
+}
+
+impl BiomeDataHandler {
+
+}
+
+impl DataHandler<BiomeSerializableData> for BiomeDataHandler {
+    fn from_serializable_data_holder(data_holder: SerializableDataHolder<BiomeSerializableData>) -> Self {
+        todo!()
+    }
+
+    fn into_serializable_data_holder(self) -> SerializableDataHolder<BiomeSerializableData> {
+        todo!()
     }
 }
 

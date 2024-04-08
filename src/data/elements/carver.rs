@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use regex::Regex;
-use crate::data::elements::element::{DataElement, FileElement};
+use crate::data::datapack::{SerializableDataElement, DataHandler, FileElement};
 
 #[derive(Debug)]
 pub struct CarverElement {
@@ -11,12 +11,16 @@ impl CarverElement {
 
 }
 
-impl DataElement for CarverElement {
+impl SerializableDataElement for CarverElement {
     fn serialize(&self) -> String {
         todo!()
     }
 
     fn deserialize(json: String) -> serde_json::Result<Box<Self>> {
+        todo!()
+    }
+
+    fn get_data_handler() -> Box<dyn DataHandler<Self>> {
         todo!()
     }
 }

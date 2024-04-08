@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -11,8 +12,7 @@ use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::FORMAT18;
-use crate::data::elements::biome::BiomeElement;
-use crate::data::elements::element::{DataElement, FileElement};
+use crate::data::elements::biome::BiomeSerializableData;
 use crate::data::util::{ResourceLocation, Text};
 
 //////////////////////////////////
@@ -68,11 +68,11 @@ lazy_static! {
 
 //------------//
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Datapack {
     pub pack_info: PackInfo,
 
-    biomes: HashMap<ResourceLocation, DataHolder<BiomeElement>>
+    biomes: HashMap<ResourceLocation, Box<SerializableDataHolder<BiomeSerializableData>>>
 }
 
 impl Datapack {
@@ -139,7 +139,7 @@ impl Datapack {
         if let Some(cap) = NAMESPACE_REG.captures(name) {
             let namespace = cap.get(1).unwrap().clone().as_str();
 
-            if let Some(cap) = BiomeElement::get_file_regex().captures(file.name()) {
+            if let Some(cap) = BiomeSerializableData::get_file_regex().captures(file.name()) {
                 let id = cap.get(1).unwrap().clone().as_str();
                 let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
 
@@ -149,14 +149,14 @@ impl Datapack {
                 let mut biome_data = String::new();
                 file.read_to_string(&mut biome_data)?;
                 //println!("{}", biome_data);
-                let biome = *BiomeElement::deserialize(biome_data.clone())?;
+                let biome = *BiomeSerializableData::deserialize(biome_data.clone())?;
 
                 match datapack.biomes.entry(resource_location.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().add(data_source, Box::new(biome));
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert(DataHolder::named(resource_location, data_source, biome));
+                        entry.insert(SerializableDataHolder::named(resource_location, data_source, biome));
                     }
                 }
             }
@@ -250,9 +250,9 @@ enum PackDescription {
     Array(Vec<Text>)
 }
 
-//////////////////
-// Data Storage //
-//////////////////
+//////////////////////////////
+//------ Data Storage ------//
+//////////////////////////////
 
 #[derive(Debug, Clone)]
 enum DataSource {
@@ -262,39 +262,38 @@ enum DataSource {
 
 //------------//
 
-#[derive(Debug, Clone)]
-pub struct DataHolder<T>
-where T: DataElement {
+#[derive(Debug)]
+pub struct SerializableDataHolder<T: SerializableDataElement> {
     root_data: Option<T>,
-    data: HashMap<Overlay, T>,
+    overlay_data: HashMap<Overlay, T>,
     resource_location: Option<ResourceLocation>
 }
 
-impl<T: DataElement> DataHolder<T> {
-    pub fn anonymous(data_source: DataSource, data: T) -> Self {
+impl<T: SerializableDataElement> SerializableDataHolder<T> {
+    pub fn anonymous(data_source: DataSource, data: T) -> Box<Self> {
         match data_source {
             DataSource::Root => {
-                DataHolder {
+                Box::new(SerializableDataHolder {
                     root_data: Some(data),
-                    data: HashMap::new(),
+                    overlay_data: HashMap::new(),
                     resource_location: None
-                }
+                })
             }
             DataSource::Overlay(overlay) => {
-                let mut data_holder = DataHolder {
+                let mut data_holder = Box::new(SerializableDataHolder {
                     root_data: None,
-                    data: HashMap::new(),
+                    overlay_data: HashMap::new(),
                     resource_location: None
-                };
+                });
 
-                data_holder.data.insert(overlay, data);
+                data_holder.overlay_data.insert(overlay, data);
 
                 return data_holder
             }
         }
     }
 
-    pub fn named(resource_location: ResourceLocation, data_source: DataSource, data: T) -> Self {
+    pub fn named(resource_location: ResourceLocation, data_source: DataSource, data: T) -> Box<Self> {
         let mut data_holder = Self::anonymous(data_source, data);
         data_holder.resource_location = Some(resource_location);
         data_holder
@@ -306,7 +305,7 @@ impl<T: DataElement> DataHolder<T> {
                 self.root_data = Some(*data_element);
             }
             DataSource::Overlay(overlay) => {
-                self.data.insert(overlay, *data_element);
+                self.overlay_data.insert(overlay, *data_element);
             }
         }
     }
@@ -317,7 +316,7 @@ impl<T: DataElement> DataHolder<T> {
                 Option::from(&self.root_data)
             }
             DataSource::Overlay(overlay) => {
-                self.data.get(&overlay)
+                self.overlay_data.get(&overlay)
             }
         }
     }
@@ -328,15 +327,49 @@ impl<T: DataElement> DataHolder<T> {
                 self.root_data = None;
             }
             DataSource::Overlay(overlay) => {
-                self.data.remove(&overlay);
+                self.overlay_data.remove(&overlay);
             }
         }
     }
 }
 
-/////////////////
-// Error Types //
-/////////////////
+//------------//
+
+pub trait DataHandler<T: SerializableDataElement> {
+    fn from_serializable_data_holder(data_holder: SerializableDataHolder<T>) -> Self where Self: Sized;
+    fn into_serializable_data_holder(self) -> SerializableDataHolder<T>;
+}
+
+//------------//
+
+pub trait DataEntry<T> {
+    fn get_name(&self) -> &str;
+    //fn get_values(&self) -> HashMap<>;
+}
+
+//------------//
+
+pub struct DataValue<T> {
+    name: String,
+    value: T
+}
+
+//------------//
+
+pub trait SerializableDataElement {
+    fn serialize(&self) -> String;
+    fn deserialize(json: String) -> serde_json::Result<Box<Self>> where Self: Sized;
+}
+
+//------------//
+
+pub trait FileElement : SerializableDataElement {
+    fn get_file_regex() -> &'static Regex;
+}
+
+/////////////////////////////
+//------ Error Types ------//
+/////////////////////////////
 
 #[derive(Debug)]
 pub enum DatapackError {
