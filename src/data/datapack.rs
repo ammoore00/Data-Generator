@@ -8,6 +8,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use regex::Regex;
+use strum_macros::FromRepr;
 use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
@@ -19,7 +20,7 @@ use crate::data::util::{ResourceLocation, Text};
 //------ Datapack Formats ------//
 //////////////////////////////////
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize_repr, Deserialize_repr)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize_repr, Deserialize_repr, FromRepr)]
 #[repr(u8)]
 pub enum DatapackFormat {
     FORMAT6 = 6,
@@ -52,7 +53,11 @@ impl DatapackFormat {
     }
 
     pub fn supports_overlays(&self) -> bool {
-        *self >= FORMAT18
+        *self >= Self::get_minimum_overlay_version()
+    }
+
+    pub fn get_minimum_overlay_version() -> Self {
+        FORMAT18
     }
 }
 
@@ -69,15 +74,15 @@ lazy_static! {
 //------------//
 
 #[derive(Debug)]
-pub struct Datapack {
-    pub pack_info: PackInfo,
+pub struct SerializableDatapack {
+    pub pack_info: SerializablePackInfo,
 
     biomes: HashMap<ResourceLocation, Box<SerializableDataHolder<BiomeSerializableData>>>
 }
 
-impl Datapack {
-    fn empty(pack_info: PackInfo) -> Self {
-        Datapack {
+impl SerializableDatapack {
+    fn empty(pack_info: SerializablePackInfo) -> Self {
+        SerializableDatapack {
             pack_info,
 
             biomes: HashMap::new()
@@ -86,16 +91,16 @@ impl Datapack {
 
     //------ File Handling ------//
 
-    pub fn from_zip(filepath: &str) -> Result<Datapack, DatapackError> {
+    pub fn from_zip(filepath: &str) -> Result<SerializableDatapack, DatapackError> {
         let zip_file = File::open(&filepath)?;
         let mut archive = ZipArchive::new(zip_file)?;
 
         // Load pack info
         let mut pack_info_str = String::new();
         archive.by_name("pack.mcmeta")?.read_to_string(&mut pack_info_str)?;
-        let pack_info: PackInfo = serde_json::from_str(pack_info_str.clone().as_ref())?;
+        let pack_info: SerializablePackInfo = serde_json::from_str(pack_info_str.clone().as_ref())?;
 
-        let mut datapack = Datapack::empty(pack_info.clone());
+        let mut datapack = SerializableDatapack::empty(pack_info.clone());
 
         // Iterate through files in the archive
         // Must be done by index instead of iterator to allow mutable access to contents
@@ -109,10 +114,10 @@ impl Datapack {
         Ok(datapack)
     }
 
-    fn get_data_source(file: &mut ZipFile, datapack: &Datapack) -> Result<DataSource, DatapackError> {
+    fn get_data_source(file: &mut ZipFile, datapack: &SerializableDatapack) -> Result<SerializableDataSource, DatapackError> {
         let name = file.name().to_owned();
 
-        let mut data_source = DataSource::Root;
+        let mut data_source = SerializableDataSource::Root;
         let mut overlay_directory: Option<&str> = None;
 
         // Is the current file part of the base data or the overlay?
@@ -122,7 +127,7 @@ impl Datapack {
             overlay_directory = Some(overlay_cap.get(1).unwrap().as_str());
 
             if let Some(overlay) = datapack.pack_info.get_overlay(overlay_directory.unwrap()) {
-                data_source = DataSource::Overlay(overlay);
+                data_source = SerializableDataSource::Overlay(overlay);
             }
             else {
                 return Err(DatapackError::Overlay(format!("Overlay directory {} found, but not declared in pack info!", overlay_directory.unwrap())))
@@ -132,7 +137,7 @@ impl Datapack {
         Ok(data_source)
     }
 
-    fn import_data(file: &mut ZipFile, datapack: &mut Datapack, data_source: DataSource) -> Result<(), DatapackError> {
+    fn import_data(file: &mut ZipFile, datapack: &mut SerializableDatapack, data_source: SerializableDataSource) -> Result<(), DatapackError> {
         let name = file.name();
 
         // Makes sure all files in data folder are in a valid namespace
@@ -168,21 +173,23 @@ impl Datapack {
 
         Ok(())
     }
+
+    // TODO: Writing back into a zip file
 }
 
-///////////////////////////////
-//------ Datapack Info ------//
-///////////////////////////////
+//////////////////////////////////////////
+//------ Serialized Datapack Info ------//
+//////////////////////////////////////////
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PackInfo {
-    pack: Pack,
+pub struct SerializablePackInfo {
+    pack: SerializablePackData,
     #[serde(default)]
-    overlays: Option<PackOverlays>
+    overlays: Option<SerializablePackOverlays>
 }
 
-impl PackInfo {
-    fn get_overlay(&self, name: &str) -> Option<Overlay> {
+impl SerializablePackInfo {
+    fn get_overlay(&self, name: &str) -> Option<SerializableOverlayEntry> {
         if let Some(overlays) = &self.overlays {
             return overlays.get_overlay(name)
         }
@@ -194,7 +201,7 @@ impl PackInfo {
 //------------//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Pack {
+struct SerializablePackData {
     pack_format: DatapackFormat,
     #[serde(default)]
     supported_formats: Option<FormatRange>,
@@ -204,12 +211,12 @@ struct Pack {
 //------------//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PackOverlays {
-    entries: Vec<Overlay>
+struct SerializablePackOverlays {
+    entries: Vec<SerializableOverlayEntry>
 }
 
-impl PackOverlays {
-    fn get_overlay(&self, name: &str) -> Option<Overlay> {
+impl SerializablePackOverlays {
+    fn get_overlay(&self, name: &str) -> Option<SerializableOverlayEntry> {
         for overlay in &self.entries {
             if overlay.directory == name {
                 return Some(overlay.clone())
@@ -223,7 +230,7 @@ impl PackOverlays {
 //------------//
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct Overlay {
+struct SerializableOverlayEntry {
     formats: FormatRange,
     directory: String
 }
@@ -237,7 +244,7 @@ enum FormatRange {
     Range((i32, i32)),
     Object {
         min_inclusive: i32,
-        max_include: i32
+        max_inclusive: i32
     }
 }
 
@@ -250,14 +257,14 @@ enum PackDescription {
     Array(Vec<Text>)
 }
 
-//////////////////////////////
-//------ Data Storage ------//
-//////////////////////////////
+/////////////////////////////////////////
+//------ Serialized Data Storage ------//
+/////////////////////////////////////////
 
 #[derive(Debug, Clone)]
-enum DataSource {
+enum SerializableDataSource {
     Root,
-    Overlay(Overlay)
+    Overlay(SerializableOverlayEntry)
 }
 
 //------------//
@@ -265,21 +272,21 @@ enum DataSource {
 #[derive(Debug)]
 pub struct SerializableDataHolder<T: SerializableDataElement> {
     root_data: Option<T>,
-    overlay_data: HashMap<Overlay, T>,
+    overlay_data: HashMap<SerializableOverlayEntry, T>,
     resource_location: Option<ResourceLocation>
 }
 
 impl<T: SerializableDataElement> SerializableDataHolder<T> {
-    pub fn anonymous(data_source: DataSource, data: T) -> Box<Self> {
+    pub fn anonymous(data_source: SerializableDataSource, data: T) -> Box<Self> {
         match data_source {
-            DataSource::Root => {
+            SerializableDataSource::Root => {
                 Box::new(SerializableDataHolder {
                     root_data: Some(data),
                     overlay_data: HashMap::new(),
                     resource_location: None
                 })
             }
-            DataSource::Overlay(overlay) => {
+            SerializableDataSource::Overlay(overlay) => {
                 let mut data_holder = Box::new(SerializableDataHolder {
                     root_data: None,
                     overlay_data: HashMap::new(),
@@ -293,40 +300,40 @@ impl<T: SerializableDataElement> SerializableDataHolder<T> {
         }
     }
 
-    pub fn named(resource_location: ResourceLocation, data_source: DataSource, data: T) -> Box<Self> {
+    pub fn named(resource_location: ResourceLocation, data_source: SerializableDataSource, data: T) -> Box<Self> {
         let mut data_holder = Self::anonymous(data_source, data);
         data_holder.resource_location = Some(resource_location);
         data_holder
     }
 
-    pub fn add(&mut self, data_source: DataSource, data_element: Box<T>) {
+    pub fn add(&mut self, data_source: SerializableDataSource, data_element: Box<T>) {
         match data_source {
-            DataSource::Root => {
+            SerializableDataSource::Root => {
                 self.root_data = Some(*data_element);
             }
-            DataSource::Overlay(overlay) => {
+            SerializableDataSource::Overlay(overlay) => {
                 self.overlay_data.insert(overlay, *data_element);
             }
         }
     }
 
-    pub fn get(&self, data_source: DataSource) -> Option<&T> {
+    pub fn get(&self, data_source: SerializableDataSource) -> Option<&T> {
         match data_source {
-            DataSource::Root => {
+            SerializableDataSource::Root => {
                 Option::from(&self.root_data)
             }
-            DataSource::Overlay(overlay) => {
+            SerializableDataSource::Overlay(overlay) => {
                 self.overlay_data.get(&overlay)
             }
         }
     }
 
-    pub fn remove(&mut self, data_source: DataSource) {
+    pub fn remove(&mut self, data_source: SerializableDataSource) {
         match data_source {
-            DataSource::Root => {
+            SerializableDataSource::Root => {
                 self.root_data = None;
             }
-            DataSource::Overlay(overlay) => {
+            SerializableDataSource::Overlay(overlay) => {
                 self.overlay_data.remove(&overlay);
             }
         }
@@ -338,6 +345,84 @@ impl<T: SerializableDataElement> SerializableDataHolder<T> {
 pub trait DataHandler<T: SerializableDataElement> {
     fn from_serializable_data_holder(data_holder: SerializableDataHolder<T>) -> Self where Self: Sized;
     fn into_serializable_data_holder(self) -> SerializableDataHolder<T>;
+}
+
+//------------//
+
+pub trait SerializableDataElement {
+    fn serialize(&self) -> String;
+    fn deserialize(json: String) -> serde_json::Result<Box<Self>> where Self: Sized;
+}
+
+//------------//
+
+pub trait FileElement : SerializableDataElement {
+    fn get_file_regex() -> &'static Regex;
+}
+
+///////////////////////////////////////
+//------ Internal Data storage ------//
+///////////////////////////////////////
+
+pub struct Overlay {
+    name: String,
+    min_format: DatapackFormat,
+    max_format: DatapackFormat
+}
+
+impl Overlay {
+    fn from_single_format(name: String, format: DatapackFormat) -> Result<Self, DatapackError> {
+        Self::from_formats(name, format, format)
+    }
+
+    fn from_formats(name: String, min_format: DatapackFormat, max_format: DatapackFormat) -> Result<Self, DatapackError> {
+        if min_format > max_format {
+            return Err(DatapackError::Overlay(format!("Minimum format {} cannot be greater than maximum format {}", min_format as u8, max_format as u8)))
+        }
+
+        if !min_format.supports_overlays() && min_format != max_format {
+            return Err(DatapackError::Overlay(format!("Format ranges are not supported below format {}", DatapackFormat::get_minimum_overlay_version() as u8)))
+        }
+
+        Ok(Overlay {
+            name,
+            min_format,
+            max_format
+        })
+    }
+
+    fn from_single_int_format(name: String, format_int: i32) -> Result<Self, DatapackError> {
+        Self::from_int_formats(name, format_int, format_int)
+    }
+
+    fn from_int_formats(name: String, min_format_int: i32, max_format_int: i32) -> Result<Self, DatapackError> {
+        let min_format = DatapackFormat::from_repr(min_format_int as u8).ok_or(DatapackError::Format(format!("Invalid datapack format {min_format_int}")))?;
+        let max_format = DatapackFormat::from_repr(max_format_int as u8).ok_or(DatapackError::Format(format!("Invalid datapack format {max_format_int}")))?;
+
+        Ok(Overlay {
+            name,
+            min_format,
+            max_format
+        })
+    }
+}
+
+impl TryFrom<SerializableOverlayEntry> for Overlay {
+    type Error = DatapackError;
+
+    fn try_from(value: SerializableOverlayEntry) -> Result<Self, Self::Error> {
+        match value.formats {
+            FormatRange::Exact(version) => {
+                Overlay::from_int_formats(value.directory, version, version)
+            }
+            FormatRange::Range((min_version, max_version)) => {
+                Overlay::from_int_formats(value.directory, min_version, max_version)
+            }
+            FormatRange::Object {min_inclusive, max_inclusive} => {
+                Overlay::from_int_formats(value.directory, min_inclusive, max_inclusive)
+            }
+        }
+    }
 }
 
 //------------//
@@ -354,19 +439,6 @@ pub struct DataValue<T> {
     value: T
 }
 
-//------------//
-
-pub trait SerializableDataElement {
-    fn serialize(&self) -> String;
-    fn deserialize(json: String) -> serde_json::Result<Box<Self>> where Self: Sized;
-}
-
-//------------//
-
-pub trait FileElement : SerializableDataElement {
-    fn get_file_regex() -> &'static Regex;
-}
-
 /////////////////////////////
 //------ Error Types ------//
 /////////////////////////////
@@ -376,7 +448,8 @@ pub enum DatapackError {
     File(String),
     Deserialize(String),
     Namespace(String),
-    Overlay(String)
+    Overlay(String),
+    Format(String)
 }
 
 impl From<ZipError> for DatapackError {
