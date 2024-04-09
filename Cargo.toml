@@ -18,3 +18,5 @@ strum_macros = "0.26"
 zip = "0.6"
 lazy_static = "1.4.0"
 regex = "1.10.4"
+
+iced = "0.12"
