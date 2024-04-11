@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -8,7 +9,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use regex::Regex;
-use strum_macros::FromRepr;
+use strum_macros::{Display, FromRepr};
 use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
@@ -443,7 +444,7 @@ pub struct DataValue<T> {
 //------ Error Types ------//
 /////////////////////////////
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum DatapackError {
     File(String),
     Deserialize(String),
@@ -451,6 +452,8 @@ pub enum DatapackError {
     Overlay(String),
     Format(String)
 }
+
+impl Error for DatapackError {}
 
 impl From<ZipError> for DatapackError {
     fn from(value: ZipError) -> Self {
