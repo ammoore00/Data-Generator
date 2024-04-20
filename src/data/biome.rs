@@ -53,15 +53,19 @@ impl BiomeData {
 
 }
 
-impl DataHandler<SerializableBiomeData> for BiomeData {
-    fn from_serializable_data_holder(data_holder: SerializableDataHolder<SerializableBiomeData>) -> Self {
-        todo!()
-    }
-
-    fn into_serializable_data_holder(self) -> SerializableDataHolder<SerializableBiomeData> {
+impl From<SerializableDataHolder<SerializableBiomeData>> for BiomeData {
+    fn from(value: SerializableDataHolder<SerializableBiomeData>) -> Self {
         todo!()
     }
 }
+
+impl Into<SerializableDataHolder<SerializableBiomeData>> for BiomeData {
+    fn into(self) -> SerializableDataHolder<SerializableBiomeData> {
+        todo!()
+    }
+}
+
+impl DataHandler<SerializableBiomeData> for BiomeData {}
 
 //------------//
 

@@ -375,10 +375,6 @@ pub struct Datapack {
 }
 
 impl Datapack {
-
-    fn into_serializable_datapack(self) -> SerializableDatapack {
-        todo!()
-    }
 }
 
 impl TryFrom<SerializableDatapack> for Datapack {
@@ -445,12 +441,15 @@ impl TryFrom<SerializableDatapack> for Datapack {
     }
 }
 
+impl Into<SerializableDatapack> for Datapack {
+    fn into(self) -> SerializableDatapack {
+        todo!()
+    }
+}
+
 //------------//
 
-pub trait DataHandler<T: SerializableDataElement> {
-    fn from_serializable_data_holder(data_holder: SerializableDataHolder<T>) -> Self where Self: Sized;
-    fn into_serializable_data_holder(self) -> SerializableDataHolder<T>;
-}
+pub trait DataHandler<T: SerializableDataElement>: From<SerializableDataHolder<T>> + Into<SerializableDataHolder<T>> {}
 
 //------------//
 
