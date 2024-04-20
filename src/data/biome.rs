@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::EnumString;
 use std::default::Default;
 use regex::Regex;
-use crate::data::datapack::{SerializableDataElement, DataHandler, SerializableDataHolder, FileElement};
+use crate::data::datapack::{SerializableDataElement, DataHandler, SerializableDataHolder, FileElement, DatapackFormat};
 use crate::data::carver::CarverData;
 use crate::data::util::{BlockState, ItemStack, ResourceLocation};
 
@@ -12,18 +12,18 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone)]
-pub struct BiomeSerializableData {
+pub struct SerializableBiomeData {
     shared_data: BiomeSharedData,
     format_data: BiomeFormatData
 }
 
-impl BiomeSerializableData {
+impl SerializableBiomeData {
     pub fn new(shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
-        BiomeSerializableData {shared_data, format_data}
+        Self {shared_data, format_data}
     }
 }
 
-impl SerializableDataElement for BiomeSerializableData {
+impl SerializableDataElement for SerializableBiomeData {
     fn serialize(&self) -> String {
         todo!()
     }
@@ -31,11 +31,11 @@ impl SerializableDataElement for BiomeSerializableData {
     fn deserialize(json: String) -> serde_json::Result<Box<Self>> {
         let shared_data: BiomeSharedData = serde_json::from_str(json.as_str())?;
         let format_data: BiomeFormatData = serde_json::from_str(json.as_str())?;
-        Ok(Box::from(BiomeSerializableData::new(shared_data, format_data)))
+        Ok(Box::new(SerializableBiomeData::new(shared_data, format_data)))
     }
 }
 
-impl FileElement for BiomeSerializableData {
+impl FileElement for SerializableBiomeData {
     fn get_file_regex() -> &'static Regex {
         &BIOME_REG
     }
@@ -45,36 +45,29 @@ impl FileElement for BiomeSerializableData {
 //------ Biome Data Storage ------//
 ////////////////////////////////////
 
-struct BiomeDataHandler {
+pub struct BiomeData {
 
 }
 
-impl BiomeDataHandler {
+impl BiomeData {
 
 }
 
-impl DataHandler<BiomeSerializableData> for BiomeDataHandler {
-    fn from_serializable_data_holder(data_holder: SerializableDataHolder<BiomeSerializableData>) -> Self {
+impl DataHandler<SerializableBiomeData> for BiomeData {
+    fn from_serializable_data_holder(data_holder: SerializableDataHolder<SerializableBiomeData>) -> Self {
         todo!()
     }
 
-    fn into_serializable_data_holder(self) -> SerializableDataHolder<BiomeSerializableData> {
+    fn into_serializable_data_holder(self) -> SerializableDataHolder<SerializableBiomeData> {
         todo!()
     }
 }
+
+//------------//
 
 //////////////////////////////////////////
 //------ Biome Data Serialization ------//
 //////////////////////////////////////////
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-enum BiomeFormatData {
-    BiomeFormat6(BiomeDataFormat6),
-    BiomeFormat8(BiomeDataFormat8),
-    BiomeFormat10(BiomeDataFormat10),
-    BiomeFormat12(BiomeDataFormat12)
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeSharedData {
@@ -92,21 +85,40 @@ pub struct BiomeSharedData {
     // TODO: spawn costs
 }
 
+//------------//
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum BiomeFormatData {
+    BiomeFormat6(BiomeDataFormat6),
+    BiomeFormat8(BiomeDataFormat8),
+    BiomeFormat10(BiomeDataFormat10),
+    BiomeFormat12(BiomeDataFormat12)
+}
+
+//------------//
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat12 {
     has_precipitation: bool
 }
+
+//------------//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat10 {
     precipitation: LegacyPrecipitationCategory
 }
 
+//------------//
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat8 {
     precipitation: LegacyPrecipitationCategory,
     // TODO: biome category
 }
+
+//------------//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiomeDataFormat6 {
@@ -134,6 +146,8 @@ pub enum TemperatureModifier {
 }
 impl Default for TemperatureModifier { fn default() -> Self { TemperatureModifier::None } }
 
+//------------//
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, EnumString)]
 pub enum GrassColorModifier {
     #[strum(to_string = "translate.biome.grass_color_modifier.none")]
@@ -147,6 +161,8 @@ pub enum GrassColorModifier {
     Swamp
 }
 impl Default for GrassColorModifier { fn default() -> Self { GrassColorModifier::None } }
+
+//------------//
 
 // Used until Format 10
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, EnumString)]
@@ -162,6 +178,8 @@ pub enum LegacyPrecipitationCategory {
     Snow
 }
 impl Default for LegacyPrecipitationCategory { fn default() -> Self { LegacyPrecipitationCategory::Rain } }
+
+//------------//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Effect {
@@ -179,6 +197,8 @@ struct Effect {
     //particle: Option<Particle>
     // TODO: Rest of spec
 }
+
+//------------//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
@@ -218,6 +238,8 @@ enum Particle {
     }
 }
 
+//------------//
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 enum VibrationPositionSource {
@@ -232,11 +254,15 @@ enum VibrationPositionSource {
     }
 }
 
+//------------//
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CarverList {
     air: Carver,
     liquid: Carver
 }
+
+//------------//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -245,6 +271,8 @@ enum Carver {
     CARVER(CarverData),
     LIST(Vec<CarverData>)
 }
+
+//------------//
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 struct FeatureList {

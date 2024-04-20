@@ -13,8 +13,8 @@ use strum_macros::{Display, FromRepr};
 use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
-use crate::data::datapack::DatapackFormat::FORMAT18;
-use crate::data::biome::BiomeSerializableData;
+use crate::data::datapack::DatapackFormat::Format18;
+use crate::data::biome::{BiomeData, SerializableBiomeData};
 use crate::data::util::{ResourceLocation, Text};
 
 //////////////////////////////////
@@ -24,32 +24,32 @@ use crate::data::util::{ResourceLocation, Text};
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize_repr, Deserialize_repr, FromRepr)]
 #[repr(u8)]
 pub enum DatapackFormat {
-    FORMAT6 = 6,
-    FORMAT7 = 7,
-    FORMAT8 = 8,
-    FORMAT9 = 9,
-    FORMAT10 = 10,
-    FORMAT12 = 12,
-    FORMAT15 = 15,
-    FORMAT18 = 18,
-    FORMAT26 = 26,
-    FORMAT35 = 35
+    Format6 = 6,
+    Format7 = 7,
+    Format8 = 8,
+    Format9 = 9,
+    Format10 = 10,
+    Format12 = 12,
+    Format15 = 15,
+    Format18 = 18,
+    Format26 = 26,
+    Format41 = 41
 }
 
 impl DatapackFormat {
     pub fn get_version_range(&self) -> [(i32, i32); 2] {
         use DatapackFormat::*;
         match *self {
-            FORMAT6 => [(16, 2), (16, 5)],
-            FORMAT7 => [(17, 0), (17, 1)],
-            FORMAT8 => [(18, 0), (18, 1)],
-            FORMAT9 => [(18, 2), (18, 2)],
-            FORMAT10 => [(19, 0), (19, 3)],
-            FORMAT12 => [(19, 4), (19, 4)],
-            FORMAT15 => [(20, 0), (20, 1)],
-            FORMAT18 => [(20, 2), (20, 2)],
-            FORMAT26 => [(20, 3), (20, 4)],
-            FORMAT35 => [(20, 5), (20, 5)],
+            Format6 => [(16, 2), (16, 5)],
+            Format7 => [(17, 0), (17, 1)],
+            Format8 => [(18, 0), (18, 1)],
+            Format9 => [(18, 2), (18, 2)],
+            Format10 => [(19, 0), (19, 3)],
+            Format12 => [(19, 4), (19, 4)],
+            Format15 => [(20, 0), (20, 1)],
+            Format18 => [(20, 2), (20, 2)],
+            Format26 => [(20, 3), (20, 4)],
+            Format41 => [(20, 5), (20, 5)],
         }
     }
 
@@ -58,7 +58,7 @@ impl DatapackFormat {
     }
 
     pub fn get_minimum_overlay_version() -> Self {
-        FORMAT18
+        Format18
     }
 }
 
@@ -78,7 +78,7 @@ lazy_static! {
 pub struct SerializableDatapack {
     pub pack_info: SerializablePackInfo,
 
-    biomes: HashMap<ResourceLocation, Box<SerializableDataHolder<BiomeSerializableData>>>
+    biomes: HashMap<ResourceLocation, Box<SerializableDataHolder<SerializableBiomeData>>>
 }
 
 impl SerializableDatapack {
@@ -99,9 +99,9 @@ impl SerializableDatapack {
         // Load pack info
         let mut pack_info_str = String::new();
         archive.by_name("pack.mcmeta")?.read_to_string(&mut pack_info_str)?;
-        let pack_info: SerializablePackInfo = serde_json::from_str(pack_info_str.clone().as_ref())?;
+        let pack_info: SerializablePackInfo = serde_json::from_str(&*pack_info_str)?;
 
-        let mut datapack = SerializableDatapack::empty(pack_info.clone());
+        let mut datapack = SerializableDatapack::empty(pack_info);
 
         // Iterate through files in the archive
         // Must be done by index instead of iterator to allow mutable access to contents
@@ -145,7 +145,7 @@ impl SerializableDatapack {
         if let Some(cap) = NAMESPACE_REG.captures(name) {
             let namespace = cap.get(1).unwrap().clone().as_str();
 
-            if let Some(cap) = BiomeSerializableData::get_file_regex().captures(file.name()) {
+            if let Some(cap) = SerializableBiomeData::get_file_regex().captures(file.name()) {
                 let id = cap.get(1).unwrap().clone().as_str();
                 let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
 
@@ -155,7 +155,7 @@ impl SerializableDatapack {
                 let mut biome_data = String::new();
                 file.read_to_string(&mut biome_data)?;
                 //println!("{}", biome_data);
-                let biome = *BiomeSerializableData::deserialize(biome_data.clone())?;
+                let biome = *SerializableBiomeData::deserialize(biome_data.clone())?;
 
                 match datapack.biomes.entry(resource_location.clone()) {
                     Entry::Occupied(mut entry) => {
@@ -187,6 +187,7 @@ pub struct SerializablePackInfo {
     pack: SerializablePackData,
     #[serde(default)]
     overlays: Option<SerializablePackOverlays>
+    // TODO: add filters (see wiki for more info)
 }
 
 impl SerializablePackInfo {
@@ -343,13 +344,6 @@ impl<T: SerializableDataElement> SerializableDataHolder<T> {
 
 //------------//
 
-pub trait DataHandler<T: SerializableDataElement> {
-    fn from_serializable_data_holder(data_holder: SerializableDataHolder<T>) -> Self where Self: Sized;
-    fn into_serializable_data_holder(self) -> SerializableDataHolder<T>;
-}
-
-//------------//
-
 pub trait SerializableDataElement {
     fn serialize(&self) -> String;
     fn deserialize(json: String) -> serde_json::Result<Box<Self>> where Self: Sized;
@@ -364,6 +358,36 @@ pub trait FileElement : SerializableDataElement {
 ///////////////////////////////////////
 //------ Internal Data storage ------//
 ///////////////////////////////////////
+
+pub struct Datapack {
+    min_version: DatapackFormat,
+    max_version: DatapackFormat,
+
+    overlays: Vec<Overlay>,
+
+    biomes: HashMap<Overlay, BiomeData>
+}
+
+impl Datapack {
+    fn from_serializable_datapack(serializable_datapack: SerializableDatapack) -> Self {
+        todo!()
+    }
+}
+
+//------------//
+
+pub trait DataHandler<T: SerializableDataElement> {
+    fn from_serializable_data_holder(data_holder: SerializableDataHolder<T>) -> Self where Self: Sized;
+    fn into_serializable_data_holder(self) -> SerializableDataHolder<T>;
+}
+
+//------------//
+
+pub enum DataValue {
+
+}
+
+//------------//
 
 pub struct Overlay {
     name: String,
@@ -424,20 +448,6 @@ impl TryFrom<SerializableOverlayEntry> for Overlay {
             }
         }
     }
-}
-
-//------------//
-
-pub trait DataEntry<T> {
-    fn get_name(&self) -> &str;
-    //fn get_values(&self) -> HashMap<>;
-}
-
-//------------//
-
-pub struct DataValue<T> {
-    name: String,
-    value: T
 }
 
 /////////////////////////////
