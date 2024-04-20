@@ -1,7 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -14,7 +14,7 @@ use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::Format18;
-use crate::data::biome::{BiomeData, SerializableBiomeData};
+use crate::data::biome::SerializableBiomeData;
 use crate::data::util::{ResourceLocation, Text};
 
 //////////////////////////////////
@@ -150,7 +150,7 @@ impl SerializableDatapack {
                 let resource_location = ResourceLocation::new(String::from(namespace), String::from(id));
 
                 //println!("{}", name);
-                println!("{}", resource_location);
+                //println!("{}", resource_location);
 
                 let mut biome_data = String::new();
                 file.read_to_string(&mut biome_data)?;
@@ -359,18 +359,89 @@ pub trait FileElement : SerializableDataElement {
 //------ Internal Data storage ------//
 ///////////////////////////////////////
 
+#[derive(Debug)]
 pub struct Datapack {
-    min_version: DatapackFormat,
-    max_version: DatapackFormat,
+    description: Vec<Text>,
+
+    // Min and max format for all data contained within the datapack, including overlays
+    min_format: DatapackFormat,
+    max_format: DatapackFormat,
+    // Format used by the root data, ignoring overlays
+    root_format: DatapackFormat,
 
     overlays: Vec<Overlay>,
 
-    biomes: HashMap<Overlay, BiomeData>
+    //biomes: HashMap<Overlay, BiomeData>
 }
 
 impl Datapack {
-    fn from_serializable_datapack(serializable_datapack: SerializableDatapack) -> Self {
+
+    fn into_serializable_datapack(self) -> SerializableDatapack {
         todo!()
+    }
+}
+
+impl TryFrom<SerializableDatapack> for Datapack {
+    type Error = DatapackError;
+
+    fn try_from(serializable_datapack: SerializableDatapack) -> Result<Self, Self::Error> {
+        let pack_info = serializable_datapack.pack_info;
+        let description = match pack_info.pack.description {
+            PackDescription::Text(text) => vec![text],
+            PackDescription::Array(array) => array
+        };
+
+        let root_format = pack_info.pack.pack_format;
+
+        let (min_format, max_format) = if let Some(format_range) = pack_info.pack.supported_formats {
+            let (min_format_int, max_format_int) = match format_range {
+                FormatRange::Exact(format_int) => (format_int, format_int),
+                FormatRange::Range(format_range) => format_range,
+                FormatRange::Object { min_inclusive, max_inclusive } => (min_inclusive, max_inclusive)
+            };
+
+            let min = DatapackFormat::from_repr(min_format_int as u8)
+                .ok_or(DatapackError::Format(format!("Invalid datapack format {min_format_int}")))?;
+            let max = DatapackFormat::from_repr(max_format_int as u8)
+                .ok_or(DatapackError::Format(format!("Invalid datapack format {max_format_int}")))?;
+
+            (min, max)
+        }
+        else {
+            (root_format, root_format)
+        };
+
+        let mut overlay_error: Option<Self::Error> = None;
+
+        let overlays = if let Some(serializable_overlays) = pack_info.overlays {
+            serializable_overlays.entries.into_iter()
+                .map(|overlay| Overlay::try_from(overlay))
+                .filter_map(|result| {
+                    match result {
+                        Ok(overlay) => Some(overlay),
+                        Err(error) => {
+                            overlay_error = Some(error);
+                            None
+                        }
+                    }
+                })
+                .collect()
+        }
+        else {
+            Vec::new()
+        };
+
+        if let Some(error) = overlay_error {
+            return Err(error);
+        }
+
+        Ok(Self {
+            description,
+            min_format,
+            max_format,
+            root_format,
+            overlays
+        })
     }
 }
 
@@ -389,6 +460,7 @@ pub enum DataValue {
 
 //------------//
 
+#[derive(Debug)]
 pub struct Overlay {
     name: String,
     min_format: DatapackFormat,
