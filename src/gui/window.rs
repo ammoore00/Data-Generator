@@ -1,7 +1,7 @@
 use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
 use iced::theme::Button;
-use iced::widget::{container, text, button, column as col, Rule, row, Container};
+use iced::widget::{container, text, button, Rule, Container, Row, Column};
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::window::MainContentState::PackInfo;
 
@@ -70,46 +70,63 @@ impl Application for ApplicationWindow {
             (&self.default, "Default")
         };
 
-        let txt = text(format!("{:#?}", datapack));
-        let btn = button(text("Switch pack"))
-            .on_press(Message::SwitchPacks)
-            .style(Button::Primary);
+        //: Container<'_, Message, Theme, Renderer>
 
-        let header_menu: Container<'_, Message, Theme, Renderer> = container(row![
-                ])
+        let header_menu = container(
+            Row::new()
+                .push(text("File"))
+                .push(text("Edit"))
+                .align_items(iced::Alignment::Start).spacing(10))
             .width(Length::Fill)
-            .height(Length::FillPortion(5))
+            .height(Length::Fixed(25.))
             .center_x()
-            .align_y(Vertical::Top);
+            .align_y(Vertical::Top)
+            .style(iced::theme::Container::Box);
 
-        let file_browser: Container<'_, Message, Theme, Renderer> = container(col![
-            text(title),
-            btn,
-        ].align_items(iced::Alignment::Center).spacing(10));
-        let content: Container<'_, Message, Theme, Renderer> = container(col![
-            txt
-        ].align_items(iced::Alignment::Center).spacing(10));
-        let preview: Container<'_, Message, Theme, Renderer> = container(col![
+        let file_browser = container(
+            Column::new()
+                .push(text(title))
+                .align_items(iced::Alignment::Center).spacing(10))
+            .width(Length::FillPortion(1))
+            .height(Length::Fill);
 
-        ]);
+        let content = container(
+            Column::new()
+                .push(button(text("Switch pack"))
+                    .on_press(Message::SwitchPacks)
+                    .style(Button::Primary))
+                .align_items(iced::Alignment::Center).spacing(10))
+            .style(iced::theme::Container::Box)
+            .width(Length::FillPortion(4))
+            .height(Length::Fill);
 
-        let main_view: Container<'_, Message, Theme, Renderer> = container(row![
-            file_browser,
-            content,
-            preview
-        ]);
+        let preview = container(
+            Column::new()
+                .push(text(format!("{:#?}", datapack)))
+                .align_items(iced::Alignment::Center).spacing(10))
+            .width(Length::FillPortion(1))
+            .height(Length::Fill);
 
-        let total_window = col![
-            header_menu,
-            main_view
-        ];
+        let main_view = container(
+            Row::new()
+                .push(file_browser)
+                .push(content)
+                .push(preview)
+                .align_items(iced::Alignment::Center).spacing(10))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x()
+            .center_y();
+
+        let total_window = Column::new()
+            .push(header_menu)
+            .push(main_view);
 
         container(total_window)
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
             .center_y()
-            .padding(40)
             .into()
     }
 
