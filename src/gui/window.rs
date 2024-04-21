@@ -8,7 +8,11 @@ use crate::gui::window::MainContentState::PackInfo;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Message {
-    SwitchPacks
+    // Program functionality
+    SwitchPacks,
+    // Pane grid functionality
+    Resized(pane_grid::ResizeEvent),
+    Clicked(pane_grid::Pane),
 }
 
 //------------//
@@ -26,7 +30,8 @@ pub struct ApplicationWindow {
     terralith: Datapack,
     state: MainContentState,
 
-    panes: pane_grid::State<Pane>
+    panes: pane_grid::State<PaneState>,
+    focus: Option<pane_grid::Pane>,
 }
 
 impl Default for ApplicationWindow {
@@ -41,9 +46,9 @@ impl Default for ApplicationWindow {
         let ser_terralith = SerializableDatapack::from_zip(filepath_terralith).unwrap();
         let terralith = Datapack::try_from(ser_terralith).unwrap();
 
-        let file_tree_pane = Pane::new(PaneType::FileTree);
-        let main_content_pain = Pane::new(PaneType::MainContent);
-        let preview_pane = Pane::new(PaneType::Preview);
+        let file_tree_pane = PaneState::new(PaneType::FileTree);
+        let main_content_pain = PaneState::new(PaneType::MainContent);
+        let preview_pane = PaneState::new(PaneType::Preview);
 
         let panes = pane_grid::State::with_configuration(
             pane_grid::Configuration::Split{
@@ -62,7 +67,9 @@ impl Default for ApplicationWindow {
             default,
             terralith,
             state: PackInfo(true),
-            panes
+
+            panes,
+            focus: None
         }
     }
 }
@@ -83,10 +90,22 @@ impl Application for ApplicationWindow {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
+            ///////////////////////////////////////
+            //------ Program Functionality ------//
+            ///////////////////////////////////////
             Message::SwitchPacks => {
                 if let PackInfo(is_default) = &self.state {
                     self.state = PackInfo(!is_default);
                 }
+            }
+            /////////////////////////////////////////
+            //------ Pane Grid Functionality ------//
+            /////////////////////////////////////////
+            Message::Resized(pane_grid::ResizeEvent { split, ratio }) => {
+                self.panes.resize(split, ratio);
+            }
+            Message::Clicked(pane) => {
+                self.focus = Some(pane);
             }
         }
 
@@ -94,19 +113,21 @@ impl Application for ApplicationWindow {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        //: Container<'_, Message, Theme, Renderer>
-
         let header_menu = self.get_header();
 
-        let main_view = PaneGrid::new(&self.panes, |id, pane, is_maximized| {
-            pane_grid::Content::new(
-                match pane.pane_type {
-                    PaneType::FileTree => self.get_file_browser(),
-                    PaneType::MainContent => self.get_content_view(),
-                    PaneType::Preview => self.get_preview(),
-                }
-            )
-        });
+        let main_view = PaneGrid::new(&self.panes, |pane, state, is_maximized| {
+                pane_grid::Content::new(
+                    match state.pane_type {
+                        PaneType::FileTree => self.get_file_browser(),
+                        PaneType::MainContent => self.get_content_view(),
+                        PaneType::Preview => self.get_preview(),
+                    }
+                )
+            })
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .on_click(Message::Clicked)
+            .on_resize(10, Message::Resized);
 
         let total_window = Column::new()
             .push(header_menu)
@@ -214,16 +235,14 @@ impl<'a> ApplicationWindow {
 //------------//
 
 #[derive(Debug, Clone, Copy)]
-struct Pane {
+struct PaneState {
     pane_type: PaneType,
-    pub is_pinned: bool,
 }
 
-impl Pane {
+impl PaneState {
     fn new(pane_type: PaneType) -> Self {
         Self {
             pane_type,
-            is_pinned: false,
         }
     }
 }
