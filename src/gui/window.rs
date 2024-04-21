@@ -2,7 +2,7 @@ use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, T
 use iced::alignment::Vertical;
 use iced::theme::Button;
 use iced::widget::{container, text, button, Rule, Container, Row, Column, PaneGrid, pane_grid};
-use iced::widget::pane_grid::Axis;
+use iced::widget::pane_grid::{Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::window::MainContentState::PackInfo;
 
@@ -116,18 +116,42 @@ impl Application for ApplicationWindow {
         let header_menu = self.get_header();
 
         let main_view = PaneGrid::new(&self.panes, |pane, state, is_maximized| {
-                pane_grid::Content::new(
-                    match state.pane_type {
-                        PaneType::FileTree => self.get_file_browser(),
-                        PaneType::MainContent => self.get_content_view(),
-                        PaneType::Preview => self.get_preview(),
+            let mut title: Row<'_, Message, Theme, Renderer> = Row::new();
+
+            title = match state.pane_type {
+                PaneType::FileTree => {
+                    let mut title_text = "Default";
+                    if let PackInfo(is_default) = &self.state {
+                        if !*is_default {
+                            title_text = "Terralith"
+                        }
                     }
-                )
-            })
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .on_click(Message::Clicked)
-            .on_resize(10, Message::Resized);
+
+                    title.push(text(title_text))
+                }
+                PaneType::MainContent => {
+                    title.push(text("Pack Info"))
+                }
+                PaneType::Preview => {
+                    title.push(text("Json Preview"))
+                }
+            };
+
+            let title_bar = TitleBar::new(title)
+                .padding(5);
+
+            pane_grid::Content::new(
+            match state.pane_type {
+                    PaneType::FileTree => self.get_file_browser(),
+                    PaneType::MainContent => self.get_content_view(),
+                    PaneType::Preview => self.get_preview(),
+                })
+                .title_bar(title_bar)
+        })
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .on_click(Message::Clicked)
+        .on_resize(10, Message::Resized);
 
         let total_window = Column::new()
             .push(header_menu)
@@ -164,22 +188,9 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_file_browser(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        let title = if let PackInfo(is_default) = &self.state {
-            if *is_default {
-                "Default"
-            }
-            else {
-                "Terralith"
-            }
-        }
-        else {
-            "Default"
-        };
-
         container(
             Column::new()
-                .push(text(title))
-                .push(Rule::horizontal(4.))
+                //.push(Rule::horizontal(4.))
                 .push(text("Pack Info"))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
