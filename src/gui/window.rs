@@ -26,7 +26,7 @@ impl Default for ApplicationWindow {
         Self {
             default,
             terralith,
-            state: MainContentState::PackInfo(true)
+            state: PackInfo(true)
         }
     }
 }
@@ -100,7 +100,10 @@ impl<'a> ApplicationWindow {
             Row::new()
                 .push(text("File"))
                 .push(text("Edit"))
-                .align_items(iced::Alignment::Start).spacing(10))
+                .align_items(iced::Alignment::Start)
+                .spacing(10)
+                .width(Length::Fill)
+                .height(Length::Fill))
             .width(Length::Fill)
             .height(Length::Fixed(25.))
             .center_x()
@@ -124,9 +127,15 @@ impl<'a> ApplicationWindow {
         container(
             Column::new()
                 .push(text(title))
-                .align_items(iced::Alignment::Center).spacing(10))
+                .push(Rule::horizontal(4.))
+                .push(text("Pack Info"))
+                .align_items(iced::Alignment::Start)
+                .spacing(10)
+                .width(Length::Fill)
+                .height(Length::Fill))
             .width(Length::FillPortion(1))
             .height(Length::Fill)
+            .padding(5)
     }
 
     fn get_content_view(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
@@ -135,10 +144,14 @@ impl<'a> ApplicationWindow {
                 .push(button(text("Switch pack"))
                     .on_press(Message::SwitchPacks)
                     .style(Button::Primary))
-                .align_items(iced::Alignment::Center).spacing(10))
+                .align_items(iced::Alignment::Start)
+                .spacing(10)
+                .width(Length::Fill)
+                .height(Length::Fill))
             .style(iced::theme::Container::Box)
             .width(Length::FillPortion(4))
             .height(Length::Fill)
+            .padding(5)
     }
 
     fn get_preview(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
@@ -157,9 +170,13 @@ impl<'a> ApplicationWindow {
         container(
             Column::new()
                 .push(text(format!("{:#?}", datapack)))
-                .align_items(iced::Alignment::Center).spacing(10))
+                .align_items(iced::Alignment::Start)
+                .spacing(10)
+                .width(Length::Fill)
+                .height(Length::Fill))
             .width(Length::FillPortion(1))
             .height(Length::Fill)
+            .padding(5)
     }
 }
 
