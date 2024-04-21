@@ -98,28 +98,15 @@ impl Application for ApplicationWindow {
 
         let header_menu = self.get_header();
 
-        let file_browser = self.get_file_browser();
-        let content = self.get_content_view();
-        let preview = self.get_preview();
-
         let main_view = PaneGrid::new(&self.panes, |id, pane, is_maximized| {
             pane_grid::Content::new(
-                text("Hello World")
+                match pane.pane_type {
+                    PaneType::FileTree => self.get_file_browser(),
+                    PaneType::MainContent => self.get_content_view(),
+                    PaneType::Preview => self.get_preview(),
+                }
             )
         });
-
-        /*
-        let main_view = container(
-            Row::new()
-                .push(file_browser)
-                .push(content)
-                .push(preview)
-                .align_items(iced::Alignment::Center).spacing(10))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x()
-            .center_y();
-         */
 
         let total_window = Column::new()
             .push(header_menu)
