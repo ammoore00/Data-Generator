@@ -67,6 +67,7 @@ impl DatapackFormat {
 ///////////////////////////////////
 
 lazy_static! {
+    static ref DATAPACK_NAME_REG: Regex = Regex::new(r"/(.+).zip").unwrap();
     static ref NAMESPACE_REG: Regex = Regex::new(r"data/([a-z0-9_.-]+)").unwrap();
     static ref DATA_REG: Regex = Regex::new(r"data/.+").unwrap();
     static ref OVERLAY_REG: Regex = Regex::new(r"^([a-z0-9_-]+)/data/(.+)").unwrap();
@@ -76,14 +77,16 @@ lazy_static! {
 
 #[derive(Debug)]
 pub struct SerializableDatapack {
+    name: String,
     pub pack_info: SerializablePackInfo,
 
     biomes: HashMap<ResourceLocation, Box<SerializableDataHolder<SerializableBiomeData>>>
 }
 
 impl SerializableDatapack {
-    fn empty(pack_info: SerializablePackInfo) -> Self {
+    fn empty(name: String, pack_info: SerializablePackInfo) -> Self {
         SerializableDatapack {
+            name,
             pack_info,
 
             biomes: HashMap::new()
@@ -101,7 +104,15 @@ impl SerializableDatapack {
         archive.by_name("pack.mcmeta")?.read_to_string(&mut pack_info_str)?;
         let pack_info: SerializablePackInfo = serde_json::from_str(&*pack_info_str)?;
 
-        let mut datapack = SerializableDatapack::empty(pack_info);
+        let name = if let Some(filename_cap) = DATAPACK_NAME_REG.captures(filepath) {
+            filename_cap.get(1).unwrap().as_str()
+        }
+        else {
+            "Untitled"
+        };
+
+
+        let mut datapack = SerializableDatapack::empty(String::from(name), pack_info);
 
         // Iterate through files in the archive
         // Must be done by index instead of iterator to allow mutable access to contents
@@ -361,6 +372,7 @@ pub trait FileElement : SerializableDataElement {
 
 #[derive(Debug)]
 pub struct Datapack {
+    pub(crate) name: String,
     description: Vec<Text>,
 
     // Min and max format for all data contained within the datapack, including overlays
@@ -381,6 +393,7 @@ impl TryFrom<SerializableDatapack> for Datapack {
     type Error = DatapackError;
 
     fn try_from(serializable_datapack: SerializableDatapack) -> Result<Self, Self::Error> {
+        let name = serializable_datapack.name;
         let pack_info = serializable_datapack.pack_info;
         let description = match pack_info.pack.description {
             PackDescription::Text(text) => vec![text],
@@ -432,6 +445,7 @@ impl TryFrom<SerializableDatapack> for Datapack {
         }
 
         Ok(Self {
+            name,
             description,
             min_format,
             max_format,

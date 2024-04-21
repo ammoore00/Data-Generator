@@ -4,12 +4,14 @@ use iced::theme::Button;
 use iced::widget::{container, text, button, Rule, Container, Row, Column, PaneGrid, pane_grid};
 use iced::widget::pane_grid::{Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
+use crate::gui::datapack;
 use crate::gui::window::MainContentState::PackInfo;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Message {
     // Program functionality
     SwitchPacks,
+    Input(String),
     // Pane grid functionality
     Resized(pane_grid::ResizeEvent),
     Clicked(pane_grid::Pane),
@@ -57,7 +59,7 @@ impl Default for ApplicationWindow {
                 a: Box::new(pane_grid::Configuration::Pane(file_tree_pane)),
                 b: Box::new(pane_grid::Configuration::Split{
                     axis: Axis::Vertical,
-                    ratio: 0.75,
+                    ratio: 0.66,
                     a: Box::new(pane_grid::Configuration::Pane(main_content_pain)),
                     b: Box::new(pane_grid::Configuration::Pane(preview_pane)),
                 }),
@@ -106,6 +108,10 @@ impl Application for ApplicationWindow {
             }
             Message::Clicked(pane) => {
                 self.focus = Some(pane);
+            }
+            Message::Input(input) => {
+                println!("{}", input.clone());
+                self.default.name = input;
             }
         }
 
@@ -201,12 +207,13 @@ impl<'a> ApplicationWindow {
             .padding(5)
     }
 
-    fn get_content_view(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
+    fn get_content_view(&'a self) -> Container<'a, <ApplicationWindow as Application>::Message> {
         container(
             Column::new()
-                .push(button(text("Switch pack"))
-                    .on_press(Message::SwitchPacks)
-                    .style(Button::Primary))
+                //.push(button(text("Switch pack"))
+                //    .on_press(Message::SwitchPacks)
+                //    .style(Button::Primary))
+                .push(datapack::get_datapack_gui(&self.default))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
