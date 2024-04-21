@@ -1,14 +1,32 @@
 use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
 use iced::theme::Button;
-use iced::widget::{container, text, button, Rule, Container, Row, Column};
+use iced::widget::{container, text, button, Rule, Container, Row, Column, PaneGrid, pane_grid};
+use iced::widget::pane_grid::Axis;
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::window::MainContentState::PackInfo;
+
+#[derive(Debug, Clone, Copy)]
+pub enum Message {
+    SwitchPacks
+}
+
+//------------//
+
+#[derive(Debug, Clone, Copy)]
+pub enum MainContentState {
+    PackInfo(bool),
+    Biome
+}
+
+//------------//
 
 pub struct ApplicationWindow {
     default: Datapack,
     terralith: Datapack,
-    state: MainContentState
+    state: MainContentState,
+
+    panes: pane_grid::State<Pane>
 }
 
 impl Default for ApplicationWindow {
@@ -23,10 +41,28 @@ impl Default for ApplicationWindow {
         let ser_terralith = SerializableDatapack::from_zip(filepath_terralith).unwrap();
         let terralith = Datapack::try_from(ser_terralith).unwrap();
 
+        let file_tree_pane = Pane::new(PaneType::FileTree);
+        let main_content_pain = Pane::new(PaneType::MainContent);
+        let preview_pane = Pane::new(PaneType::Preview);
+
+        let panes = pane_grid::State::with_configuration(
+            pane_grid::Configuration::Split{
+                axis: Axis::Vertical,
+                ratio: 0.2,
+                a: Box::new(pane_grid::Configuration::Pane(file_tree_pane)),
+                b: Box::new(pane_grid::Configuration::Split{
+                    axis: Axis::Vertical,
+                    ratio: 0.75,
+                    a: Box::new(pane_grid::Configuration::Pane(main_content_pain)),
+                    b: Box::new(pane_grid::Configuration::Pane(preview_pane)),
+                }),
+            });
+
         Self {
             default,
             terralith,
-            state: PackInfo(true)
+            state: PackInfo(true),
+            panes
         }
     }
 }
@@ -66,6 +102,13 @@ impl Application for ApplicationWindow {
         let content = self.get_content_view();
         let preview = self.get_preview();
 
+        let main_view = PaneGrid::new(&self.panes, |id, pane, is_maximized| {
+            pane_grid::Content::new(
+                text("Hello World")
+            )
+        });
+
+        /*
         let main_view = container(
             Row::new()
                 .push(file_browser)
@@ -76,6 +119,7 @@ impl Application for ApplicationWindow {
             .height(Length::Fill)
             .center_x()
             .center_y();
+         */
 
         let total_window = Column::new()
             .push(header_menu)
@@ -183,14 +227,25 @@ impl<'a> ApplicationWindow {
 //------------//
 
 #[derive(Debug, Clone, Copy)]
-pub enum Message {
-    SwitchPacks
+struct Pane {
+    pane_type: PaneType,
+    pub is_pinned: bool,
+}
+
+impl Pane {
+    fn new(pane_type: PaneType) -> Self {
+        Self {
+            pane_type,
+            is_pinned: false,
+        }
+    }
 }
 
 //------------//
 
 #[derive(Debug, Clone, Copy)]
-pub enum MainContentState {
-    PackInfo(bool),
-    Biome
+enum PaneType {
+    FileTree,
+    MainContent,
+    Preview
 }
