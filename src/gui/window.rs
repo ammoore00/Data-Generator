@@ -58,54 +58,13 @@ impl Application for ApplicationWindow {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let (datapack, title) = if let PackInfo(is_default) = &self.state {
-            if *is_default {
-                (&self.default, "Default")
-            }
-            else {
-                (&self.terralith, "Terralith")
-            }
-        }
-        else {
-            (&self.default, "Default")
-        };
-
         //: Container<'_, Message, Theme, Renderer>
 
-        let header_menu = container(
-            Row::new()
-                .push(text("File"))
-                .push(text("Edit"))
-                .align_items(iced::Alignment::Start).spacing(10))
-            .width(Length::Fill)
-            .height(Length::Fixed(25.))
-            .center_x()
-            .align_y(Vertical::Top)
-            .style(iced::theme::Container::Box);
+        let header_menu = self.get_header();
 
-        let file_browser = container(
-            Column::new()
-                .push(text(title))
-                .align_items(iced::Alignment::Center).spacing(10))
-            .width(Length::FillPortion(1))
-            .height(Length::Fill);
-
-        let content = container(
-            Column::new()
-                .push(button(text("Switch pack"))
-                    .on_press(Message::SwitchPacks)
-                    .style(Button::Primary))
-                .align_items(iced::Alignment::Center).spacing(10))
-            .style(iced::theme::Container::Box)
-            .width(Length::FillPortion(4))
-            .height(Length::Fill);
-
-        let preview = container(
-            Column::new()
-                .push(text(format!("{:#?}", datapack)))
-                .align_items(iced::Alignment::Center).spacing(10))
-            .width(Length::FillPortion(1))
-            .height(Length::Fill);
+        let file_browser = self.get_file_browser();
+        let content = self.get_content_view();
+        let preview = self.get_preview();
 
         let main_view = container(
             Row::new()
@@ -132,6 +91,75 @@ impl Application for ApplicationWindow {
 
     fn theme(&self) -> Self::Theme {
         Theme::Dark
+    }
+}
+
+impl<'a> ApplicationWindow {
+    fn get_header(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
+        container(
+            Row::new()
+                .push(text("File"))
+                .push(text("Edit"))
+                .align_items(iced::Alignment::Start).spacing(10))
+            .width(Length::Fill)
+            .height(Length::Fixed(25.))
+            .center_x()
+            .align_y(Vertical::Top)
+            .style(iced::theme::Container::Box)
+    }
+
+    fn get_file_browser(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
+        let title = if let PackInfo(is_default) = &self.state {
+            if *is_default {
+                "Default"
+            }
+            else {
+                "Terralith"
+            }
+        }
+        else {
+            "Default"
+        };
+
+        container(
+            Column::new()
+                .push(text(title))
+                .align_items(iced::Alignment::Center).spacing(10))
+            .width(Length::FillPortion(1))
+            .height(Length::Fill)
+    }
+
+    fn get_content_view(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
+        container(
+            Column::new()
+                .push(button(text("Switch pack"))
+                    .on_press(Message::SwitchPacks)
+                    .style(Button::Primary))
+                .align_items(iced::Alignment::Center).spacing(10))
+            .style(iced::theme::Container::Box)
+            .width(Length::FillPortion(4))
+            .height(Length::Fill)
+    }
+
+    fn get_preview(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
+        let datapack = if let PackInfo(is_default) = &self.state {
+            if *is_default {
+                &self.default
+            }
+            else {
+                &self.terralith
+            }
+        }
+        else {
+            &self.default
+        };
+
+        container(
+            Column::new()
+                .push(text(format!("{:#?}", datapack)))
+                .align_items(iced::Alignment::Center).spacing(10))
+            .width(Length::FillPortion(1))
+            .height(Length::Fill)
     }
 }
 
