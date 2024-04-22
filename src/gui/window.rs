@@ -1,73 +1,21 @@
-use std::fmt::{Debug, Formatter, Write};
+use std::fmt::Debug;
 use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
 use iced::widget::{container, text, Container, Row, Column, PaneGrid, pane_grid};
 use iced::widget::pane_grid::{Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::datapack;
+use crate::gui::widgets::WidgetCallbackChannel;
 use crate::gui::window::MainContentState::PackInfo;
 
+#[derive(Debug, Clone)]
 pub enum Message {
     // Program functionality
     SwitchPacks,
-    Input(Box<dyn MessageFn<Output=()>>),
+    Input(WidgetCallbackChannel),
     // Pane grid functionality
     ResizedPane(pane_grid::ResizeEvent),
     ClickedPane(pane_grid::Pane),
-}
-
-impl Clone for Message {
-    fn clone(&self) -> Self {
-        match self {
-            Message::SwitchPacks => Self::SwitchPacks,
-            Message::Input(f) => Self::Input(f.clone()),
-            Message::ResizedPane(event) => Self::ResizedPane(event.clone()),
-            Message::ClickedPane(pane) => Self::ClickedPane(pane.clone()),
-        }
-    }
-}
-
-impl Debug for Message {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Message::SwitchPacks => {
-                write!(f, "SwitchPacks")?;
-                Ok(())
-            }
-            Message::Input(input) => {
-                write!(f, "Input: {:?}", stringify!(input))?;
-                Ok(())
-            },
-            Message::ResizedPane(event) => {
-                write!(f, "Resized: {:?}", event)?;
-                Ok(())
-            },
-            Message::ClickedPane(pane) => {
-                write!(f, "ClickedPane: {:?}", pane)?;
-                Ok(())
-            },
-        }
-    }
-}
-
-//------------//
-
-pub trait MessageFn: FnOnce() -> () + Send {
-    fn clone_box<'a>(&self) -> Box<dyn 'a + MessageFn<Output=()>>
-    where Self: 'a;
-}
-
-impl<F> MessageFn for F
-where F: FnOnce() -> () + Clone + Send {
-    fn clone_box<'a>(&self) -> Box<dyn 'a + MessageFn<Output=()>> where Self: 'a {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + MessageFn<Output=()>> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
-    }
 }
 
 //------------//
@@ -162,10 +110,19 @@ impl Application for ApplicationWindow {
             Message::ClickedPane(pane) => {
                 self.focus = Some(pane);
             }
-            Message::Input(input) => {
-                //println!("{}", input.clone());
-                //self.default.name = input;
-                input();
+            Message::Input(callback_channel) => {
+                match callback_channel {
+                    WidgetCallbackChannel::PackInfo(callback_type) => {
+                        let mut datapack = &mut self.default;
+                        if let PackInfo(is_default) = &self.state {
+                            if !*is_default {
+                                datapack = &mut self.terralith;
+                            }
+                        }
+
+                        datapack::handle_datapack_update(datapack, callback_type);
+                    }
+                }
             }
         }
 
@@ -262,6 +219,13 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_content_view(&'a self) -> Container<'a, <ApplicationWindow as Application>::Message> {
+        let mut datapack = &self.default;
+        if let PackInfo(is_default) = &self.state {
+            if !*is_default {
+                datapack = &self.terralith;
+            }
+        }
+
         container(
             Column::new()
                 //.push(button(text("Switch pack"))
@@ -279,17 +243,12 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_preview(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        let datapack = if let PackInfo(is_default) = &self.state {
-            if *is_default {
-                &self.default
-            }
-            else {
-                &self.terralith
+        let mut datapack = &self.default;
+        if let PackInfo(is_default) = &self.state {
+            if !*is_default {
+                datapack = &self.terralith;
             }
         }
-        else {
-            &self.default
-        };
 
         container(
             Column::new()
