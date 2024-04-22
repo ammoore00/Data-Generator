@@ -4,7 +4,7 @@ use crate::gui::widgets::text_editor;
 use crate::gui::window::Message;
 
 pub fn get_datapack_gui<'a>(datapack: &Datapack) -> Element<'a, Message> {
-    let name = text_editor("Name", "Name", &datapack.name);
+    let name = text_editor("Name", "Name", &datapack.name, Box::new(|| {println!("Callback Success!")}));
 
     name.into()
 }

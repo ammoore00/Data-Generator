@@ -1,20 +1,73 @@
+use std::fmt::{Debug, Formatter, Write};
 use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
-use iced::theme::Button;
-use iced::widget::{container, text, button, Rule, Container, Row, Column, PaneGrid, pane_grid};
+use iced::widget::{container, text, Container, Row, Column, PaneGrid, pane_grid};
 use iced::widget::pane_grid::{Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::datapack;
 use crate::gui::window::MainContentState::PackInfo;
 
-#[derive(Debug, Clone)]
 pub enum Message {
     // Program functionality
     SwitchPacks,
-    Input(String),
+    Input(Box<dyn MessageFn<Output=()>>),
     // Pane grid functionality
-    Resized(pane_grid::ResizeEvent),
-    Clicked(pane_grid::Pane),
+    ResizedPane(pane_grid::ResizeEvent),
+    ClickedPane(pane_grid::Pane),
+}
+
+impl Clone for Message {
+    fn clone(&self) -> Self {
+        match self {
+            Message::SwitchPacks => Self::SwitchPacks,
+            Message::Input(f) => Self::Input(f.clone()),
+            Message::ResizedPane(event) => Self::ResizedPane(event.clone()),
+            Message::ClickedPane(pane) => Self::ClickedPane(pane.clone()),
+        }
+    }
+}
+
+impl Debug for Message {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Message::SwitchPacks => {
+                write!(f, "SwitchPacks")?;
+                Ok(())
+            }
+            Message::Input(input) => {
+                write!(f, "Input: {:?}", stringify!(input))?;
+                Ok(())
+            },
+            Message::ResizedPane(event) => {
+                write!(f, "Resized: {:?}", event)?;
+                Ok(())
+            },
+            Message::ClickedPane(pane) => {
+                write!(f, "ClickedPane: {:?}", pane)?;
+                Ok(())
+            },
+        }
+    }
+}
+
+//------------//
+
+pub trait MessageFn: FnOnce() -> () + Send {
+    fn clone_box<'a>(&self) -> Box<dyn 'a + MessageFn<Output=()>>
+    where Self: 'a;
+}
+
+impl<F> MessageFn for F
+where F: FnOnce() -> () + Clone + Send {
+    fn clone_box<'a>(&self) -> Box<dyn 'a + MessageFn<Output=()>> where Self: 'a {
+        Box::new(self.clone())
+    }
+}
+
+impl<'a> Clone for Box<dyn 'a + MessageFn<Output=()>> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
 }
 
 //------------//
@@ -103,15 +156,16 @@ impl Application for ApplicationWindow {
             /////////////////////////////////////////
             //------ Pane Grid Functionality ------//
             /////////////////////////////////////////
-            Message::Resized(pane_grid::ResizeEvent { split, ratio }) => {
+            Message::ResizedPane(pane_grid::ResizeEvent { split, ratio }) => {
                 self.panes.resize(split, ratio);
             }
-            Message::Clicked(pane) => {
+            Message::ClickedPane(pane) => {
                 self.focus = Some(pane);
             }
             Message::Input(input) => {
-                println!("{}", input.clone());
-                self.default.name = input;
+                //println!("{}", input.clone());
+                //self.default.name = input;
+                input();
             }
         }
 
@@ -156,8 +210,8 @@ impl Application for ApplicationWindow {
         })
         .width(Length::Fill)
         .height(Length::Fill)
-        .on_click(Message::Clicked)
-        .on_resize(10, Message::Resized);
+        .on_click(Message::ClickedPane)
+        .on_resize(10, Message::ResizedPane);
 
         let total_window = Column::new()
             .push(header_menu)
