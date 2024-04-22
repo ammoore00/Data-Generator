@@ -8,8 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f381e358-929e-4c85-a286-a37ae440d76a" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/gui/datapack.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/gui/datapack.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/gui/widgets.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/gui/widgets.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/gui/window.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/gui/window.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

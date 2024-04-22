@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
-use iced::widget::{container, text, Container, Row, Column, PaneGrid, pane_grid};
+use iced::theme::Button;
+use iced::widget::{container, text, Container, Row, Column, PaneGrid, pane_grid, button};
 use iced::widget::pane_grid::{Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::datapack;
@@ -101,6 +102,14 @@ impl Application for ApplicationWindow {
                     self.state = PackInfo(!is_default);
                 }
             }
+            Message::Input(callback_channel) => {
+                match callback_channel {
+                    WidgetCallbackChannel::PackInfo(callback_type) => {
+                        let datapack = self.get_active_datapack_mut();
+                        datapack::handle_datapack_update(datapack, callback_type);
+                    }
+                }
+            }
             /////////////////////////////////////////
             //------ Pane Grid Functionality ------//
             /////////////////////////////////////////
@@ -109,20 +118,6 @@ impl Application for ApplicationWindow {
             }
             Message::ClickedPane(pane) => {
                 self.focus = Some(pane);
-            }
-            Message::Input(callback_channel) => {
-                match callback_channel {
-                    WidgetCallbackChannel::PackInfo(callback_type) => {
-                        let mut datapack = &mut self.default;
-                        if let PackInfo(is_default) = &self.state {
-                            if !*is_default {
-                                datapack = &mut self.terralith;
-                            }
-                        }
-
-                        datapack::handle_datapack_update(datapack, callback_type);
-                    }
-                }
             }
         }
 
@@ -137,13 +132,7 @@ impl Application for ApplicationWindow {
 
             title = match state.pane_type {
                 PaneType::FileTree => {
-                    let mut title_text = "Default";
-                    if let PackInfo(is_default) = &self.state {
-                        if !*is_default {
-                            title_text = "Terralith"
-                        }
-                    }
-
+                    let title_text = &self.get_active_datapack().name;
                     title.push(text(title_text))
                 }
                 PaneType::MainContent => {
@@ -188,6 +177,28 @@ impl Application for ApplicationWindow {
 }
 
 impl<'a> ApplicationWindow {
+    fn get_active_datapack(&self) -> &Datapack {
+        let mut datapack = &self.default;
+        if let PackInfo(is_default) = &self.state {
+            if !*is_default {
+                datapack = &self.terralith;
+            }
+        }
+
+        datapack
+    }
+
+    fn get_active_datapack_mut(&mut self) -> &mut Datapack {
+        let mut datapack = &mut self.default;
+        if let PackInfo(is_default) = &self.state {
+            if !*is_default {
+                datapack = &mut self.terralith;
+            }
+        }
+
+        datapack
+    }
+
     fn get_header(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
         container(
             Row::new()
@@ -207,8 +218,10 @@ impl<'a> ApplicationWindow {
     fn get_file_browser(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
         container(
             Column::new()
-                //.push(Rule::horizontal(4.))
                 .push(text("Pack Info"))
+                .push(button(text("Switch pack"))
+                    .on_press(Message::SwitchPacks)
+                    .style(Button::Primary))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
@@ -219,19 +232,11 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_content_view(&'a self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        let mut datapack = &self.default;
-        if let PackInfo(is_default) = &self.state {
-            if !*is_default {
-                datapack = &self.terralith;
-            }
-        }
+        let datapack = self.get_active_datapack();
 
         container(
             Column::new()
-                //.push(button(text("Switch pack"))
-                //    .on_press(Message::SwitchPacks)
-                //    .style(Button::Primary))
-                .push(datapack::get_datapack_gui(&self.default))
+                .push(datapack::get_datapack_gui(datapack))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
@@ -243,12 +248,7 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_preview(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        let mut datapack = &self.default;
-        if let PackInfo(is_default) = &self.state {
-            if !*is_default {
-                datapack = &self.terralith;
-            }
-        }
+        let datapack = self.get_active_datapack();
 
         container(
             Column::new()
