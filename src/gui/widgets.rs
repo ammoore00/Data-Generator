@@ -1,6 +1,6 @@
 use iced::{Alignment, Application};
 use iced::theme::Button;
-use iced::widget::{button, Row, text, text_input};
+use iced::widget::{self, Row};
 use crate::gui::datapack::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
 
@@ -11,11 +11,16 @@ pub enum WidgetCallbackChannel {
 
 //------------//
 
-pub fn text_editor<'a, F>(label: &str, default: &str, reference: &str, callback_channel: F) -> Row<'a, Message, <ApplicationWindow as Application>::Theme>
+pub fn text_editor<'a, F>(
+    label: &str,
+    default: &str,
+    reference: &str,
+    callback_channel: F
+) -> Row<'a, Message, <ApplicationWindow as Application>::Theme>
 where F: Fn(String) -> WidgetCallbackChannel + 'a {
     Row::new()
-        .push(text(label))
-        .push(text_input(default, reference)
+        .push(widget::text(label))
+        .push(widget::text_input(default, reference)
             .on_input(move |text| {
                 Message::Input(callback_channel(text))
             }))
@@ -23,12 +28,29 @@ where F: Fn(String) -> WidgetCallbackChannel + 'a {
         .spacing(10)
 }
 
-pub fn true_false<'a>(label: &str, default: bool, reference: &bool) -> Row<'a, Message, <ApplicationWindow as Application>::Theme> {
+pub fn boolean_toggle<'a, F>(
+    label: &str,
+    state: bool,
+    callback_channel: F
+) -> Row<'a, Message, <ApplicationWindow as Application>::Theme>
+where F: Fn(bool) -> WidgetCallbackChannel + 'a {
+    let mut button_true = widget::button("True")
+        .style(Button::Positive);
+    let mut button_false = widget::button("False")
+        .style(Button::Destructive);
+
+    if state {
+        button_true = button_true.on_press(Message::Input(callback_channel(false)));
+    }
+    else {
+        button_false = button_false.on_press(Message::Input(callback_channel(true)));
+    }
+
+    // TODO: Style
+
     Row::new()
-        .push(text(label))
-        .push(button("True")
-            .style(Button::Positive))
-        .push(button("False")
-            .style(Button::Destructive))
+        .push(widget::text(label))
+        .push(button_true)
+        .push(button_false)
         .align_items(Alignment::Center)
 }

@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
 use iced::theme::Button;
-use iced::widget::{container, text, Container, Row, Column, PaneGrid, pane_grid, button};
-use iced::widget::pane_grid::{Axis, TitleBar};
+use iced::widget::{self, Container, Row, Column, PaneGrid};
+use iced::widget::pane_grid::{self, Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::datapack;
 use crate::gui::widgets::WidgetCallbackChannel;
@@ -133,13 +133,13 @@ impl Application for ApplicationWindow {
             title = match state.pane_type {
                 PaneType::FileTree => {
                     let title_text = &self.get_active_datapack().name;
-                    title.push(text(title_text))
+                    title.push(widget::text(title_text))
                 }
                 PaneType::MainContent => {
-                    title.push(text("Pack Info"))
+                    title.push(widget::text("Pack Info"))
                 }
                 PaneType::Preview => {
-                    title.push(text("Json Preview"))
+                    title.push(widget::text("Json Preview"))
                 }
             };
 
@@ -163,7 +163,7 @@ impl Application for ApplicationWindow {
             .push(header_menu)
             .push(main_view);
 
-        container(total_window)
+        widget::container(total_window)
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
@@ -200,10 +200,10 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_header(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        container(
+        widget::container(
             Row::new()
-                .push(text("File"))
-                .push(text("Edit"))
+                .push(widget::text("File"))
+                .push(widget::text("Edit"))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
@@ -216,10 +216,10 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_file_browser(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        container(
+        widget::container(
             Column::new()
-                .push(text("Pack Info"))
-                .push(button(text("Switch pack"))
+                .push(widget::text("Pack Info"))
+                .push(widget::button(widget::text("Switch pack"))
                     .on_press(Message::SwitchPacks)
                     .style(Button::Primary))
                 .align_items(iced::Alignment::Start)
@@ -234,7 +234,7 @@ impl<'a> ApplicationWindow {
     fn get_content_view(&'a self) -> Container<'a, <ApplicationWindow as Application>::Message> {
         let datapack = self.get_active_datapack();
 
-        container(
+        widget::container(
             Column::new()
                 .push(datapack::get_datapack_gui(datapack))
                 .align_items(iced::Alignment::Start)
@@ -250,9 +250,9 @@ impl<'a> ApplicationWindow {
     fn get_preview(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
         let datapack = self.get_active_datapack();
 
-        container(
+        widget::container(
             Column::new()
-                .push(text(format!("{:#?}", datapack)))
+                .push(widget::text(format!("{:#?}", datapack)))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
