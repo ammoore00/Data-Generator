@@ -138,6 +138,7 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone)]
+// TODO: better implementation of extra
 pub struct Text {
     text: String,
     extra: Vec<Text>,
@@ -170,6 +171,31 @@ impl Text {
             is_obfuscated: false,
         }
     }
+
+    fn from_serializable_discard_formatting(serializable_text: SerializableText) -> Result<Self, DatapackError> {
+        use SerializableText::*;
+        match serializable_text {
+            Object { text, translate, .. } => {
+                let mut should_translate = false;
+
+                let text_opt = if text.is_some() { text }
+                else if translate.is_some() {
+                    should_translate = true;
+                    translate
+                }
+                else { None };
+
+                let text = text_opt.ok_or(DatapackError::Deserialize("Text object must have either 'text' or 'translate' fields".parse().unwrap()))?;
+
+                Ok(Self {
+                    text,
+                    should_translate,
+                    .. Self::default()
+                })
+            }
+            _ => Self::try_from(serializable_text)
+        }
+    }
 }
 
 impl Default for Text {
@@ -191,12 +217,9 @@ impl TryFrom<Vec<SerializableText>> for Text {
 
                 let mut err = None;
                 let extra = value.into_iter().map(|ser_text| {
-                    match Self::try_from(ser_text) {
-                        Ok(txt) => Some(txt),
-                        Err(e) => {
-                            err = Some(e);
-                            None
-                        }
+                    match Self::from_serializable_discard_formatting(ser_text) {
+                        Ok(c) => Some(c),
+                        Err(e) => { err = Some(e); None }
                     }
                 })
                 .filter_map(|t| t)
@@ -242,12 +265,9 @@ impl TryFrom<SerializableText> for Text {
 
                 let extra_list: Vec<Text> = if let Some(extra) = extra {
                     extra.into_iter().map(|ser_text| {
-                        match Self::try_from(ser_text) {
-                            Ok(txt) => Some(txt),
-                            Err(e) => {
-                                err = Some(e);
-                                None
-                            }
+                        match Self::from_serializable_discard_formatting(ser_text) {
+                            Ok(c) => Some(c),
+                            Err(e) => { err = Some(e); None }
                         }
                     })
                     .filter_map(|t| t)
