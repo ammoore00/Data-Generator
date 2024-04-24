@@ -15,7 +15,7 @@ use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::Format18;
 use crate::data::biome::SerializableBiomeData;
-use crate::data::util::{ResourceLocation, Text};
+use crate::data::util::{ResourceLocation, SerializableText};
 
 //////////////////////////////////
 //------ Datapack Formats ------//
@@ -266,8 +266,8 @@ enum FormatRange {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 enum PackDescription {
-    Text(Text),
-    Array(Vec<Text>)
+    Text(SerializableText),
+    Array(Vec<SerializableText>)
 }
 
 /////////////////////////////////////////
@@ -373,7 +373,7 @@ pub trait FileElement : SerializableDataElement {
 #[derive(Debug)]
 pub struct Datapack {
     pub(crate) name: String,
-    description: Vec<Text>,
+    description: Vec<SerializableText>,
 
     // Min and max format for all data contained within the datapack, including overlays
     min_format: DatapackFormat,
