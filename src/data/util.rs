@@ -153,26 +153,10 @@ pub struct Text {
     is_obfuscated: bool,
 }
 
-impl TryFrom<Vec<SerializableText>> for Text {
-    type Error = DatapackError;
-
-    fn try_from(value: Vec<SerializableText>) -> Result<Self, Self::Error> {
-        //match value.len() {
-        //    0 => Err(DatapackError::Deserialize("Text as list cannot be empty".parse().unwrap())),
-        //    1 => Ok(Self::try_from(value.get(0).unwrap())?),
-        //    _ => Ok(Self {
-        //        extra: value.iter().map(|ser_text| Self::try_from(ser_text)?).collect(),
-        //        .. Self::try_from(value.get(0))?
-        //    })
-        //}
-        todo!()
-    }
-}
-
-impl Default for Text {
-    fn default() -> Self {
+impl Text {
+    fn new(text: &str) -> Self {
         Self {
-            text: String::from(""),
+            text: String::from(text),
             extra: Vec::new(),
             should_translate: false,
 
@@ -188,16 +172,54 @@ impl Default for Text {
     }
 }
 
+impl Default for Text {
+    fn default() -> Self {
+        Self::new("")
+    }
+}
+
+impl TryFrom<Vec<SerializableText>> for Text {
+    type Error = DatapackError;
+
+    fn try_from(mut value: Vec<SerializableText>) -> Result<Self, Self::Error> {
+        match value.len() {
+            0 => Err(DatapackError::Deserialize("Text as list cannot be empty".parse().unwrap())),
+            1 => Ok(Self::try_from(value.remove(0))?),
+            _ => {
+                let ser_root = value.remove(0);
+                let root = Self::try_from(ser_root)?;
+
+                let mut err = None;
+                let extra = value.into_iter().map(|ser_text| {
+                    match Self::try_from(ser_text) {
+                        Ok(txt) => Some(txt),
+                        Err(e) => {
+                            err = Some(e);
+                            None
+                        }
+                    }
+                })
+                .filter_map(|t| t)
+                .collect();
+
+                if let Some(e) = err { return Err(e) }
+
+                Ok(Self {
+                    extra,
+                    .. root
+                })
+            }
+        }
+    }
+}
+
 impl TryFrom<SerializableText> for Text {
     type Error = DatapackError;
 
     fn try_from(value: SerializableText) -> Result<Self, Self::Error> {
         match value {
             SerializableText::String(text) => {
-                Ok(Self {
-                    text,
-                    .. Self::default()
-                })
+                Ok(Self::new(&text))
             }
             SerializableText::List(list) => {
                 Self::try_from(list)
@@ -227,7 +249,8 @@ impl TryFrom<SerializableText> for Text {
                                 None
                             }
                         }
-                    }).filter_map(|t| t)
+                    })
+                    .filter_map(|t| t)
                     .collect()
                 } else { Vec::new() };
 
@@ -298,11 +321,11 @@ pub enum Color {
 }
 
 impl Color {
-    pub fn get_color(&self) -> u32 {
+    pub fn get_color(&self) -> Option<u32> {
         match self {
-            Color::Hex(val) => *val,
+            Color::Hex(val) => Some(*val),
             Color::Name(name) => {
-                Self::get_color_from_str(name).unwrap()
+                Self::get_color_from_str(name)
             }
         }
     }
