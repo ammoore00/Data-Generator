@@ -1,2 +1,23 @@
-[workspace]
-members = ["src-tauri"]
+[package]
+name = "worlddatagen"
+version = "0.0.0"
+description = "Gaia - Minecraft Datapack Generator"
+authors = ["The Lady Dawn"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_repr = "0.1"
+serde_with = "3.7"
+
+strum = "0.26"
+strum_macros = "0.26"
+
+zip = "0.6"
+lazy_static = "1.4.0"
+regex = "1.10.4"
+
+iced = { version = "0.12", features = ["image"] }
