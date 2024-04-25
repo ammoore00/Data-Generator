@@ -1,6 +1,8 @@
+use std::cell::{Cell, RefCell};
 use std::error::Error;
 use serde_with::skip_serializing_none;
 use std::fmt::{Debug, Display, Formatter};
+use std::mem;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use lazy_static::lazy_static;
@@ -155,7 +157,7 @@ pub struct Text {
     is_strikethrough: bool,
     is_obfuscated: bool,
 
-    extra: Vec<Text>,
+    extra: Option<Vec<Text>>,
 }
 
 impl Text {
@@ -173,7 +175,7 @@ impl Text {
             is_strikethrough: false,
             is_obfuscated: false,
 
-            extra: Vec::new(),
+            extra: None,
         }
     }
 
@@ -232,7 +234,7 @@ impl TryFrom<Vec<SerializableText>> for Text {
                 if let Some(e) = err { return Err(e) }
 
                 Ok(Self {
-                    extra,
+                    extra: Some(extra),
                     .. root
                 })
             }
@@ -305,7 +307,7 @@ impl TryFrom<SerializableText> for Text {
                     is_strikethrough: strikethrough.unwrap_or(false),
                     is_obfuscated: obfuscated.unwrap_or(false),
 
-                    extra: extra_list,
+                    extra: Some(extra_list),
                 })
             }
         }
@@ -315,6 +317,25 @@ impl TryFrom<SerializableText> for Text {
 impl Into<SerializableText> for Text {
     fn into(self) -> SerializableText {
         todo!()
+    }
+}
+
+impl Into<Vec<Text>> for Text {
+    fn into(self) -> Vec<Text> {
+        let mut txt = Cell::new(self);
+        let mut txt = txt.get_mut();
+        let extra = mem::take(&mut txt.extra);
+
+        match extra {
+            // Clone used here only after extra has been moved out of self
+            // Therefore this is an inexpensive operation
+            None => vec![txt.clone()],
+            Some(mut extra) => {
+                let mut list = vec![txt.clone()];
+                list.append(&mut extra);
+                list
+            }
+        }
     }
 }
 

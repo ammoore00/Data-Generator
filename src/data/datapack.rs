@@ -365,7 +365,7 @@ pub trait FileElement : SerializableDataElement {
 #[derive(Debug)]
 pub struct Datapack {
     name: String,
-    description: util::Text,
+    description: Vec<util::Text>,
 
     // Min and max format for all data contained within the datapack, including overlays
     min_format: DatapackFormat,
@@ -382,7 +382,7 @@ impl Datapack {
     pub fn name(&self) -> &str { &*self.name }
     pub fn set_name(&mut self, name: &str) { self.name = String::from(name) }
 
-    pub fn description(&self) -> &util::Text { &self.description }
+    pub fn description(&self) -> &Vec<util::Text> { &self.description }
 }
 
 impl TryFrom<SerializableDatapack> for Datapack {
@@ -392,7 +392,7 @@ impl TryFrom<SerializableDatapack> for Datapack {
         let name = serializable_datapack.name;
         let pack_info = serializable_datapack.pack_info;
 
-        let description = util::Text::try_from(pack_info.pack.description)?;
+        let description = util::Text::try_from(pack_info.pack.description)?.into();
 
         let root_format = pack_info.pack.pack_format;
 
