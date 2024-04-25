@@ -132,7 +132,7 @@ impl Application for ApplicationWindow {
 
             title = match state.pane_type {
                 PaneType::FileTree => {
-                    let title_text = &self.get_active_datapack().name;
+                    let title_text = &self.get_active_datapack().name();
                     title.push(widget::text(title_text))
                 }
                 PaneType::MainContent => {

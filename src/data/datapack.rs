@@ -15,7 +15,8 @@ use zip::result::ZipError;
 use zip::ZipArchive;
 use crate::data::datapack::DatapackFormat::Format18;
 use crate::data::biome::SerializableBiomeData;
-use crate::data::util::{ResourceLocation, SerializableText};
+use crate::data::util;
+use crate::data::util::{ColorParseError, ResourceLocation, SerializableText};
 
 //////////////////////////////////
 //------ Datapack Formats ------//
@@ -218,7 +219,7 @@ struct SerializablePackData {
     pack_format: DatapackFormat,
     #[serde(default)]
     supported_formats: Option<FormatRange>,
-    description: PackDescription
+    description: SerializableText
 }
 
 //------------//
@@ -259,15 +260,6 @@ enum FormatRange {
         min_inclusive: i32,
         max_inclusive: i32
     }
-}
-
-//------------//
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-enum PackDescription {
-    Text(SerializableText),
-    Array(Vec<SerializableText>)
 }
 
 /////////////////////////////////////////
@@ -372,8 +364,8 @@ pub trait FileElement : SerializableDataElement {
 
 #[derive(Debug)]
 pub struct Datapack {
-    pub(crate) name: String,
-    description: Vec<SerializableText>,
+    name: String,
+    description: util::Text,
 
     // Min and max format for all data contained within the datapack, including overlays
     min_format: DatapackFormat,
@@ -387,6 +379,10 @@ pub struct Datapack {
 }
 
 impl Datapack {
+    pub fn name(&self) -> &str { &*self.name }
+    pub fn set_name(&mut self, name: &str) { self.name = String::from(name) }
+
+    pub fn description(&self) -> &util::Text { &self.description }
 }
 
 impl TryFrom<SerializableDatapack> for Datapack {
@@ -395,10 +391,8 @@ impl TryFrom<SerializableDatapack> for Datapack {
     fn try_from(serializable_datapack: SerializableDatapack) -> Result<Self, Self::Error> {
         let name = serializable_datapack.name;
         let pack_info = serializable_datapack.pack_info;
-        let description = match pack_info.pack.description {
-            PackDescription::Text(text) => vec![text],
-            PackDescription::Array(array) => array
-        };
+
+        let description = util::Text::try_from(pack_info.pack.description)?;
 
         let root_format = pack_info.pack.pack_format;
 
@@ -565,5 +559,16 @@ impl From<io::Error> for DatapackError {
 impl From<serde_json::Error> for DatapackError {
     fn from(value: serde_json::Error) -> Self {
         DatapackError::Deserialize(format!("Error deserializing file: {}", value.to_string()))
+    }
+}
+
+impl From<ColorParseError> for DatapackError {
+    fn from(value: ColorParseError) -> Self {
+        let message = match value {
+            ColorParseError::Hex(m) => m,
+            ColorParseError::Name(m) => m,
+        };
+
+        DatapackError::Deserialize(format!("Error parsing color value: {}", message))
     }
 }

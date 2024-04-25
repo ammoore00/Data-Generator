@@ -1,10 +1,13 @@
+use std::error::Error;
 use serde_with::skip_serializing_none;
 use std::fmt::{Debug, Display, Formatter};
+use std::num::ParseIntError;
 use std::str::FromStr;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use regex::Regex;
+use strum_macros::Display;
 use crate::data::datapack::DatapackError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,8 +115,6 @@ pub enum SerializableText {
         //    relevant if application scope expands to include more
         //    datapack elements
         #[serde(default)]
-        extra: Option<Vec<SerializableText>>,
-        #[serde(default)]
         color: Option<String>,
         #[serde(default)]
         font: Option<ResourceLocation>,
@@ -127,6 +128,8 @@ pub enum SerializableText {
         strikethrough: Option<bool>,
         #[serde(default)]
         obfuscated: Option<bool>,
+        #[serde(default)]
+        extra: Option<Vec<crate::data::util::SerializableText>>,
         // Interactivity not implemented as it does not apply to world gen
     }
 }
@@ -137,11 +140,10 @@ lazy_static! {
     static ref DEFAULT_FONT: ResourceLocation = ResourceLocation::from_str("minecraft:default").unwrap();
 }
 
-#[derive(Debug, Clone)]
 // TODO: better implementation of extra
+#[derive(Debug, Clone)]
 pub struct Text {
     text: String,
-    extra: Vec<Text>,
     should_translate: bool,
 
     color: Option<Color>,
@@ -152,13 +154,14 @@ pub struct Text {
     is_underlined: bool,
     is_strikethrough: bool,
     is_obfuscated: bool,
+
+    extra: Vec<Text>,
 }
 
 impl Text {
     fn new(text: &str) -> Self {
         Self {
             text: String::from(text),
-            extra: Vec::new(),
             should_translate: false,
 
             color: None,
@@ -169,6 +172,8 @@ impl Text {
             is_underlined: false,
             is_strikethrough: false,
             is_obfuscated: false,
+
+            extra: Vec::new(),
         }
     }
 
@@ -217,14 +222,13 @@ impl TryFrom<Vec<SerializableText>> for Text {
 
                 let mut err = None;
                 let extra = value.into_iter().map(|ser_text| {
-                    match Self::from_serializable_discard_formatting(ser_text) {
-                        Ok(c) => Some(c),
+                    match Self::try_from(ser_text) {
+                        Ok(t) => Some(t),
                         Err(e) => { err = Some(e); None }
                     }
                 })
                 .filter_map(|t| t)
                 .collect();
-
                 if let Some(e) = err { return Err(e) }
 
                 Ok(Self {
@@ -265,8 +269,8 @@ impl TryFrom<SerializableText> for Text {
 
                 let extra_list: Vec<Text> = if let Some(extra) = extra {
                     extra.into_iter().map(|ser_text| {
-                        match Self::from_serializable_discard_formatting(ser_text) {
-                            Ok(c) => Some(c),
+                        match Self::try_from(ser_text) {
+                            Ok(t) => Some(t),
                             Err(e) => { err = Some(e); None }
                         }
                     })
@@ -280,7 +284,7 @@ impl TryFrom<SerializableText> for Text {
                     match Color::from_str(&*c) {
                         Ok(c) => Some(c),
                         Err(e) => {
-                            err = Some(e);
+                            err = Some(DatapackError::from(e));
                             None
                         }
                     }
@@ -290,7 +294,6 @@ impl TryFrom<SerializableText> for Text {
 
                 Ok(Self {
                     text,
-                    extra: extra_list,
                     should_translate,
 
                     color,
@@ -301,6 +304,8 @@ impl TryFrom<SerializableText> for Text {
                     is_underlined: underlined.unwrap_or(false),
                     is_strikethrough: strikethrough.unwrap_or(false),
                     is_obfuscated: obfuscated.unwrap_or(false),
+
+                    extra: extra_list,
                 })
             }
         }
@@ -375,17 +380,36 @@ impl Color {
 }
 
 impl FromStr for Color {
-    type Err = DatapackError;
+    type Err = ColorParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(val) = s.parse::<u32>() {
-            Ok(Self::Hex(val))
-        }
-        else if let Some(_) = Self::get_color_from_str(s) {
-            Ok(Self::Name(String::from(s)))
+        if let Some(_) = Self::get_color_from_str(s) {
+            return Ok(Self::Name(String::from(s)))
         }
         else {
-            Err(DatapackError::Deserialize(format!("Unknown color name {s}")))
+            let color = String::from(s);
+            if color.starts_with("#") && color.len() == 7 {
+                let color = &color[1..];
+                return Ok(Self::Hex(u32::from_str_radix(color, 16)?))
+            }
         }
+
+        Err(ColorParseError::Name(format!("Unknown color name {s}")))
+    }
+}
+
+//------------//
+
+#[derive(Debug, Display)]
+pub enum ColorParseError {
+    Hex(String),
+    Name(String)
+}
+
+impl Error for ColorParseError {}
+
+impl From<ParseIntError> for ColorParseError {
+    fn from(value: ParseIntError) -> Self {
+        Self::Hex(format!("Could not parse hex value {}", value.to_string()))
     }
 }

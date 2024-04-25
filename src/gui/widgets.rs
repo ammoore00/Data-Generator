@@ -1,4 +1,4 @@
-use iced::{Alignment, Application};
+use iced::{Alignment, Application, Element};
 use iced::theme::Button;
 use iced::widget::{self, Row};
 use crate::gui::datapack::DatapackCallbackType;
@@ -26,6 +26,17 @@ where F: Fn(String) -> WidgetCallbackChannel + 'a {
             }))
         .align_items(Alignment::Center)
         .spacing(10)
+}
+
+pub fn list<'a, T, F>(
+    label: &str,
+    state: Vec<T>,
+    callback_channel: F
+)
+where F: Fn(T) -> WidgetCallbackChannel + 'a,
+      T: Into<Element<'a, Message, <ApplicationWindow as Application>::Theme>>
+{
+
 }
 
 pub fn boolean_toggle<'a, F>(
