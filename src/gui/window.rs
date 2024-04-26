@@ -8,7 +8,6 @@ use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::datapack;
 use crate::gui::datapack::PackInfoState;
 use crate::gui::widgets::WidgetCallbackChannel;
-use crate::gui::window::MainContentState::PackInfo;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -68,10 +67,12 @@ impl Default for ApplicationWindow {
                 }),
             });
 
+        let state = MainContentState::PackInfo(PackInfoState::new(&default));
+
         Self {
             default,
             terralith,
-            state: PackInfo(PackInfoState::default()),
+            state,
 
             panes,
             focus: None
@@ -94,18 +95,22 @@ impl Application for ApplicationWindow {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        use crate::gui::window::MainContentState::*;
+        use crate::gui::window::Message::*;
         match message {
             ///////////////////////////////////////
             //------ Program Functionality ------//
             ///////////////////////////////////////
-            Message::SwitchPacks => {
+            SwitchPacks => {
                 if let PackInfo(pack_info_state) = &self.state {
-                    self.state = PackInfo(PackInfoState {
-                        is_default: !pack_info_state.is_default
-                    });
+                    // TODO rewrite for actual datapack switching
+                    let is_default = pack_info_state.is_default;
+                    let mut new_state = PackInfoState::new(&self.terralith);
+                    new_state.is_default = is_default;
+                    self.state = PackInfo(new_state);
                 }
             }
-            Message::Input(callback_channel) => {
+            Input(callback_channel) => {
                 match callback_channel {
                     WidgetCallbackChannel::PackInfo(callback_type) => {
                         let datapack = self.get_active_datapack_mut();
@@ -116,10 +121,10 @@ impl Application for ApplicationWindow {
             /////////////////////////////////////////
             //------ Pane Grid Functionality ------//
             /////////////////////////////////////////
-            Message::ResizedPane(pane_grid::ResizeEvent { split, ratio }) => {
+            ResizedPane(pane_grid::ResizeEvent { split, ratio }) => {
                 self.panes.resize(split, ratio);
             }
-            Message::ClickedPane(pane) => {
+            ClickedPane(pane) => {
                 self.focus = Some(pane);
             }
         }
@@ -182,7 +187,7 @@ impl Application for ApplicationWindow {
 impl<'a> ApplicationWindow {
     fn get_active_datapack(&self) -> &Datapack {
         let mut datapack = &self.default;
-        if let PackInfo(pack_info_state) = &self.state {
+        if let MainContentState::PackInfo(pack_info_state) = &self.state {
             if !pack_info_state.is_default {
                 datapack = &self.terralith;
             }
@@ -193,7 +198,7 @@ impl<'a> ApplicationWindow {
 
     fn get_active_datapack_mut(&mut self) -> &mut Datapack {
         let mut datapack = &mut self.default;
-        if let PackInfo(pack_info_state) = &self.state {
+        if let MainContentState::PackInfo(pack_info_state) = &self.state {
             if !pack_info_state.is_default {
                 datapack = &mut self.terralith;
             }
@@ -268,7 +273,7 @@ impl<'a> ApplicationWindow {
 
 //------------//
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct PaneState {
     pane_type: PaneType,
 }
@@ -283,7 +288,7 @@ impl PaneState {
 
 //------------//
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum PaneType {
     FileTree,
     MainContent,

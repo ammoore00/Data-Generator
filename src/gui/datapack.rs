@@ -1,8 +1,9 @@
 use iced::Element;
+use iced::widget::pane_grid;
 use crate::data::datapack::Datapack;
 use crate::data::util;
 use crate::gui::datapack::DatapackCallbackType::DatapackName;
-use crate::gui::widgets::{self, WidgetCallbackChannel};
+use crate::gui::widgets::{self, ListPaneState, WidgetCallbackChannel};
 use crate::gui::window::Message;
 
 #[derive(Debug, Clone)]
@@ -20,7 +21,6 @@ pub enum DatapackCallbackType {
 pub enum TextCallbackEvent {
     Add,
     Remove,
-    // TODO drag and drop
     Text(String),
 }
 
@@ -28,13 +28,26 @@ pub enum TextCallbackEvent {
 
 #[derive(Debug, Clone)]
 pub struct PackInfoState {
-    pub is_default: bool
+    pub is_default: bool,
+
+    description_panes: Option<pane_grid::State<ListPaneState>>,
+    description_focus: Option<pane_grid::Pane>,
 }
 
-impl Default for PackInfoState {
-    fn default() -> Self {
+impl PackInfoState {
+    pub fn new(datapack: &Datapack) -> Self {
+        let count = datapack.description().len();
+
+        let state = widgets::list_pane_state(count)
+            .map(|config| pane_grid::State::with_configuration(config));
+
+        dbg!(&state);
+
         Self {
-            is_default: true
+            is_default: true,
+
+            description_panes: state,
+            description_focus: None
         }
     }
 }

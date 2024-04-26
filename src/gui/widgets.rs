@@ -1,6 +1,7 @@
 use iced::{Alignment, Application, Element};
 use iced::theme::{Button, PaneGrid};
-use iced::widget::{self, Row};
+use iced::widget::{self, pane_grid, Row};
+use iced::widget::pane_grid::Axis;
 use crate::gui::datapack::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
 
@@ -77,4 +78,53 @@ where FWidget: Fn(T) -> Element<'a, Message, <ApplicationWindow as Application>:
 {
     todo!()
     //let pane_grid = PaneGrid::new();
+}
+
+pub fn list_pane_state(count: usize) -> Option<pane_grid::Configuration<ListPaneState>> {
+    match count {
+        0 => None,
+        1 => {
+            let pane = ListPaneState::new(0);
+            Some(pane_grid::Configuration::Pane(pane))
+        }
+        2 => {
+            let first = ListPaneState::new(0);
+            let second = ListPaneState::new(1);
+
+            Some(pane_grid::Configuration::Split {
+                axis: Axis::Horizontal,
+                ratio: 0.5,
+                a: Box::new(pane_grid::Configuration::Pane(first)),
+                b: Box::new(pane_grid::Configuration::Pane(second)),
+            })
+        }
+        count => {
+            let next_pane = ListPaneState::new(count - 1);
+            let prev_state = list_pane_state(count - 1).expect("Invalid state for list pane creation");
+
+            Some(pane_grid::Configuration::Split {
+                axis: Axis::Horizontal,
+                ratio: 1. / (count as f32),
+                a: Box::new(prev_state),
+                b: Box::new(pane_grid::Configuration::Pane(next_pane))
+            })
+        }
+    }
+}
+
+//------------//
+
+#[derive(Debug, Clone)]
+pub struct ListPaneState {
+    index: usize,
+    //data: T
+}
+
+impl ListPaneState {
+    pub fn new(index: usize) -> Self {
+        Self {
+            index,
+            //data
+        }
+    }
 }
