@@ -145,17 +145,17 @@ lazy_static! {
 // TODO: better implementation of extra
 #[derive(Debug, Clone)]
 pub struct Text {
-    text: String,
-    should_translate: bool,
+    pub text: String,
+    pub should_translate: bool,
 
-    color: Option<Color>,
-    font: Option<ResourceLocation>,
+    pub color: Option<Color>,
+    pub font: Option<ResourceLocation>,
 
-    is_bold: bool,
-    is_italic: bool,
-    is_underlined: bool,
-    is_strikethrough: bool,
-    is_obfuscated: bool,
+    pub is_bold: bool,
+    pub is_italic: bool,
+    pub is_underlined: bool,
+    pub is_strikethrough: bool,
+    pub is_obfuscated: bool,
 
     extra: Option<Vec<Text>>,
 }

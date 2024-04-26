@@ -1,5 +1,5 @@
 use iced::{Alignment, Application, Element};
-use iced::theme::Button;
+use iced::theme::{Button, PaneGrid};
 use iced::widget::{self, Row};
 use crate::gui::datapack::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
@@ -7,6 +7,17 @@ use crate::gui::window::{ApplicationWindow, Message};
 #[derive(Debug, Clone)]
 pub enum WidgetCallbackChannel {
     PackInfo(DatapackCallbackType)
+}
+
+//------------//
+
+#[derive(Debug, Clone)]
+pub enum ListEvent<T> {
+    Add(i32),
+    Remove(i32),
+    Drag,
+    Drop,
+    Edit(T)
 }
 
 //------------//
@@ -26,17 +37,6 @@ where F: Fn(String) -> WidgetCallbackChannel + 'a {
             }))
         .align_items(Alignment::Center)
         .spacing(10)
-}
-
-pub fn list<'a, T, F>(
-    label: &str,
-    state: Vec<T>,
-    callback_channel: F
-)
-where F: Fn(T) -> WidgetCallbackChannel + 'a,
-      T: Into<Element<'a, Message, <ApplicationWindow as Application>::Theme>>
-{
-
 }
 
 pub fn boolean_toggle<'a, F>(
@@ -64,4 +64,17 @@ where F: Fn(bool) -> WidgetCallbackChannel + 'a {
         .push(button_true)
         .push(button_false)
         .align_items(Alignment::Center)
+}
+
+pub fn list<'a, T, FWidget, FCallback>(
+    label: &str,
+    state: Vec<T>,
+    widget_creator: FWidget,
+    callback_channel: FCallback
+) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
+where FWidget: Fn(T) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
+      FCallback: Fn(Vec<T>) -> WidgetCallbackChannel + 'a,
+{
+    todo!()
+    //let pane_grid = PaneGrid::new();
 }

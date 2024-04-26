@@ -6,6 +6,7 @@ use iced::widget::{self, Container, Row, Column, PaneGrid};
 use iced::widget::pane_grid::{self, Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::datapack;
+use crate::gui::datapack::PackInfoState;
 use crate::gui::widgets::WidgetCallbackChannel;
 use crate::gui::window::MainContentState::PackInfo;
 
@@ -21,9 +22,9 @@ pub enum Message {
 
 //------------//
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum MainContentState {
-    PackInfo(bool),
+    PackInfo(PackInfoState),
     Biome
 }
 
@@ -70,7 +71,7 @@ impl Default for ApplicationWindow {
         Self {
             default,
             terralith,
-            state: PackInfo(true),
+            state: PackInfo(PackInfoState::default()),
 
             panes,
             focus: None
@@ -98,8 +99,10 @@ impl Application for ApplicationWindow {
             //------ Program Functionality ------//
             ///////////////////////////////////////
             Message::SwitchPacks => {
-                if let PackInfo(is_default) = &self.state {
-                    self.state = PackInfo(!is_default);
+                if let PackInfo(pack_info_state) = &self.state {
+                    self.state = PackInfo(PackInfoState {
+                        is_default: !pack_info_state.is_default
+                    });
                 }
             }
             Message::Input(callback_channel) => {
@@ -179,8 +182,8 @@ impl Application for ApplicationWindow {
 impl<'a> ApplicationWindow {
     fn get_active_datapack(&self) -> &Datapack {
         let mut datapack = &self.default;
-        if let PackInfo(is_default) = &self.state {
-            if !*is_default {
+        if let PackInfo(pack_info_state) = &self.state {
+            if !pack_info_state.is_default {
                 datapack = &self.terralith;
             }
         }
@@ -190,8 +193,8 @@ impl<'a> ApplicationWindow {
 
     fn get_active_datapack_mut(&mut self) -> &mut Datapack {
         let mut datapack = &mut self.default;
-        if let PackInfo(is_default) = &self.state {
-            if !*is_default {
+        if let PackInfo(pack_info_state) = &self.state {
+            if !pack_info_state.is_default {
                 datapack = &mut self.terralith;
             }
         }

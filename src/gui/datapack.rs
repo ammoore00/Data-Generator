@@ -1,6 +1,6 @@
 use iced::Element;
 use crate::data::datapack::Datapack;
-use crate::data::util::Text;
+use crate::data::util;
 use crate::gui::datapack::DatapackCallbackType::DatapackName;
 use crate::gui::widgets::{self, WidgetCallbackChannel};
 use crate::gui::window::Message;
@@ -10,7 +10,32 @@ pub enum DatapackCallbackType {
     DatapackName(String),
     Description {
         index: u32,
-        value: Text
+        event: TextCallbackEvent
+    }
+}
+
+//------------//
+
+#[derive(Debug, Clone)]
+pub enum TextCallbackEvent {
+    Add,
+    Remove,
+    // TODO drag and drop
+    Text(String),
+}
+
+//------------//
+
+#[derive(Debug, Clone)]
+pub struct PackInfoState {
+    pub is_default: bool
+}
+
+impl Default for PackInfoState {
+    fn default() -> Self {
+        Self {
+            is_default: true
+        }
     }
 }
 
@@ -19,7 +44,7 @@ pub enum DatapackCallbackType {
 pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCallbackType) {
     match callback_type {
         DatapackName(name) => datapack.set_name(&*name),
-        DatapackCallbackType::Description { index, value } => {
+        DatapackCallbackType::Description { .. } => {
 
         }
     }
@@ -31,6 +56,7 @@ pub fn get_datapack_gui<'a>(datapack: &Datapack) -> Element<'a, Message> {
     name.into()
 }
 
-fn get_text_gui<'a>() -> Element<'a, Message> {
+fn get_text_gui<'a>(text: &util::Text) -> Element<'a, Message> {
+    //let text_gui = widgets::text_editor("Text", "Text", &text.text, |s| WidgetCallbackChannel::PackInfo(DatapackName(s))).into()
     todo!()
 }
