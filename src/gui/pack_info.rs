@@ -3,7 +3,7 @@ use iced::widget::{Column, container};
 use iced::widget::pick_list::overlay;
 use crate::data::datapack::{Datapack, Overlay};
 use crate::data::util;
-use crate::gui::widgets::{self, ListEvent, ListState, WidgetCallbackChannel};
+use crate::gui::widgets::{self, ListEvent, ListInlineState, ListSettings, ListState, WidgetCallbackChannel};
 use crate::gui::window::{ApplicationWindow, Message};
 
 ///////////////////////////////
@@ -106,13 +106,23 @@ pub fn get_pack_info_gui<'a>(
     let name = widgets::text_editor("Name", "Name", &datapack.name(),
         |s| WidgetCallbackChannel::PackInfo(DatapackCallbackType::DatapackName(s)));
 
-    let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state, true,
-        |text| widget::text(&text.text).into(),
+    let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state,
+        ListSettings {
+            required: true,
+            inline_state: ListInlineState::Extended(Box::new(|text, collapsed| {
+                let preview = if collapsed { Some(widget::text(&text.text.replace("\n", "\\n"))) } else { None };
+                preview.map(|p| {p.into()})
+            })),
+        },
         get_text_gui,
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(list_event)));
 
-    let overlays = widgets::list("Overlays", datapack.overlays(), &pack_info_state.overlay_state, false,
-        |overlay| widget::text(&overlay.name).into(),
+    let overlays = widgets::list("Overlays", datapack.overlays(), &pack_info_state.overlay_state,
+        ListSettings {
+            required: false,
+            inline_state: ListInlineState::Inline
+        },
+        //|overlay, collapsed| if collapsed { Some(widget::text(&overlay.name).into()) } else { None },
         get_overlay_gui,
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Overlay(list_event)));
 

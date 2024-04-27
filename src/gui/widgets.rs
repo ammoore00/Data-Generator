@@ -1,4 +1,4 @@
-use iced::{Alignment, Application, Element, Length};
+use iced::{Alignment, Application, Element, Length, settings};
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme;
 use iced::widget::{self, Column, Row, Rule};
@@ -153,18 +153,16 @@ where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
 
 //------------//
 
-pub fn list<'a, T, EditEventType, CollapseDisplay, WidgetCreator, MessageCallback>(
+pub fn list<'a, T, EditEventType, WidgetCreator, MessageCallback>(
     label: &str,
     data: &Vec<T>,
     state: &ListState,
-    required: bool,
-    collapse_display: CollapseDisplay,
+    settings: ListSettings<'a, T>,
     widget_creator: WidgetCreator,
     callback_channel: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
     T: Default,
-    CollapseDisplay: Fn(&T) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     WidgetCreator: Fn(&T, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
@@ -213,7 +211,7 @@ where
         let mut add_remove_buttons = Row::new()
             .push(add_button);
 
-        if !required || data.len() > 1 {
+        if !settings.required || data.len() > 1 {
             add_remove_buttons = add_remove_buttons.push(remove_button);
         }
 
@@ -253,39 +251,53 @@ where
             .align_items(Alignment::Center)
             .spacing(SPACING_SMALL);
 
-        if collapsed {
-            controls = controls.push(collapse_display(item));
+        let widget = widget_creator(item, i);
+
+        let entry = if let ListInlineState::Extended(collapsed_preview) = &settings.inline_state {
+            if let Some(element) = collapsed_preview(item, collapsed) {
+                controls = controls.push(element);
+            }
+
+            let mut entry = Column::new().push(controls);
+            if !collapsed {
+                entry = entry.push(widget);
+            }
+            entry
         }
-
-        let mut entry = Column::new()
-            .push(controls)
-            .spacing(SPACING_SMALL);
-
-        if !collapsed {
-            let widget = widget_creator(item, i);
-            entry = entry.push(widget);
+        else {
+            controls = controls.push(widget);
+            Column::new()
+                .push(controls)
         }
+        .push(Rule::horizontal(STANDARD_RULE_WIDTH))
+        .spacing(SPACING_LARGE);
 
-        entry = entry.push(Rule::horizontal(4.));
+        let entry = if let ListInlineState::Inline = settings.inline_state {
+            Row::new()
+                .push(widget::text("")
+                    .width(Length::Fixed(button_size + 2. * sidebar_padding as f32)))
+                .push(entry)
+        }
+        else {
+            let collapse_text = if collapsed { ">" } else { "v" };
 
-        let collapse_text = if collapsed { ">" } else { "v" };
+            let collapse_button = widget::button(
+                widget::text(collapse_text)
+                    .horizontal_alignment(Horizontal::Center)
+                    .vertical_alignment(Vertical::Center))
+                .on_press(Message::Input(callback_channel(ListEvent::Collapse(i, !state.is_node_collapsed(i)))))
+                .style(theme::Button::Secondary)
+                .height(Length::Fixed(button_size))
+                .width(Length::Fixed(button_size))
+                .padding(0);
 
-        let collapse_button = widget::button(
-            widget::text(collapse_text)
-                .horizontal_alignment(Horizontal::Center)
-                .vertical_alignment(Vertical::Center))
-            .on_press(Message::Input(callback_channel(ListEvent::Collapse(i, !state.is_node_collapsed(i)))))
-            .style(theme::Button::Secondary)
-            .height(Length::Fixed(button_size))
-            .width(Length::Fixed(button_size))
-            .padding(0);
+            let collapse_button = widget::container(collapse_button)
+                .padding(sidebar_padding);
 
-        let collapse_button = widget::container(collapse_button)
-            .padding(sidebar_padding);
-
-        let entry = Row::new()
-            .push(collapse_button)
-            .push(entry);
+            Row::new()
+                .push(collapse_button)
+                .push(entry)
+        };
 
         content = content.push(entry);
     }
@@ -312,6 +324,7 @@ where
     widget::container(
         Column::new()
             .push(header)
+            .push(Rule::horizontal(STANDARD_RULE_WIDTH))
             .push(content)
             .spacing(SPACING_SMALL)
         ).into()
@@ -394,4 +407,26 @@ impl ListState {
     fn remove(&mut self, index: usize) {
         self.collapsed.remove(index);
     }
+}
+
+pub struct ListSettings<'a, T>
+where T: Default {
+    pub required: bool,
+    pub inline_state: ListInlineState<'a, T>
+}
+
+impl<'a, T> Default for ListSettings<'a, T>
+where T: Default {
+    fn default() -> Self {
+        Self {
+            required: false,
+            inline_state: ListInlineState::Inline
+        }
+    }
+}
+
+pub enum ListInlineState<'a, T>
+where T: Default {
+    Inline,
+    Extended(Box<dyn Fn(&T, bool) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>>>)
 }
