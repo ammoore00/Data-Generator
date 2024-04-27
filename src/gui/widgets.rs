@@ -2,7 +2,7 @@ use iced::{Alignment, Application, Element, Length};
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme;
 use iced::widget::{self, Column, Row, Rule};
-use crate::gui::datapack::DatapackCallbackType;
+use crate::gui::pack_info::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
 
 pub(crate) static SPACING_SMALL: u16 = 3;
@@ -153,17 +153,17 @@ where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
 
 //------------//
 
-pub fn list<'a, T, EditEventType, State, CollapseDisplay, WidgetCreator, MessageCallback>(
+pub fn list<'a, T, EditEventType, CollapseDisplay, WidgetCreator, MessageCallback>(
     label: &str,
     data: &Vec<T>,
-    state: &State,
+    state: &ListState,
+    required: bool,
     collapse_display: CollapseDisplay,
     widget_creator: WidgetCreator,
     callback_channel: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
     T: Default,
-    State: ListState,
     CollapseDisplay: Fn(&T) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     WidgetCreator: Fn(&T, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
@@ -210,9 +210,12 @@ where
             .width(Length::Fixed(button_size))
             .padding(0);
 
-        let add_remove_buttons = Row::new()
-            .push(add_button)
-            .push(remove_button);
+        let mut add_remove_buttons = Row::new()
+            .push(add_button);
+
+        if !required || data.len() > 1 {
+            add_remove_buttons = add_remove_buttons.push(remove_button);
+        }
 
         let mut up_button = widget::button(
                 widget::text("^")
@@ -314,14 +317,13 @@ where
         ).into()
 }
 
-pub fn handle_list_event<Event, T, State, FEdit>(
+pub fn handle_list_event<Event, T, FEdit>(
     list_event: ListEvent<Event>,
     data: &mut Vec<T>,
-    state: &mut State,
+    state: &mut ListState,
     mut edit_callback: FEdit)
 where
     T: Default,
-    State: ListState,
     FEdit: FnMut(&mut Vec<T>, Event, usize)
 {
     use ListEvent::*;
@@ -343,7 +345,10 @@ where
                 },
             }
         }
-        Remove(index) => { data.remove(index); },
+        Remove(index) => {
+            data.remove(index);
+            state.remove(index);
+        },
         Move(direction, index) => {
             use MoveDirection::*;
             match direction {
@@ -360,9 +365,33 @@ where
     }
 }
 
-pub trait ListState {
-    fn is_node_collapsed(&self, index: usize) -> bool;
-    fn set_collapsed(&mut self, index: usize, collapsed: bool);
-    fn add(&mut self, index: usize);
-    fn remove(&mut self, index: usize);
+#[derive(Debug, Clone)]
+pub struct ListState {
+    collapsed: Vec<bool>
+}
+
+impl ListState {
+    pub fn new(count: usize) -> Self {
+        Self {
+            collapsed: vec![false; count]
+        }
+    }
+
+    fn is_node_collapsed(&self, index: usize) -> bool {
+        *self.collapsed.get(index).unwrap_or(&false)
+    }
+
+    fn set_collapsed(&mut self, index: usize, collapsed: bool) {
+        if let Some(mut val) = self.collapsed.get_mut(index) {
+            *val = collapsed;
+        }
+    }
+
+    fn add(&mut self, index: usize) {
+        self.collapsed.insert(index, false);
+    }
+
+    fn remove(&mut self, index: usize) {
+        self.collapsed.remove(index);
+    }
 }

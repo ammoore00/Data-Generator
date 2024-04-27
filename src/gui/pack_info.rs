@@ -1,9 +1,10 @@
-use iced::{Element, widget};
-use iced::widget::{Column, container, Row};
-use crate::data::datapack::Datapack;
+use iced::{Application, Element, widget};
+use iced::widget::{Column, container};
+use iced::widget::pick_list::overlay;
+use crate::data::datapack::{Datapack, Overlay};
 use crate::data::util;
 use crate::gui::widgets::{self, ListEvent, ListState, WidgetCallbackChannel};
-use crate::gui::window::Message;
+use crate::gui::window::{ApplicationWindow, Message};
 
 ///////////////////////////////
 //------ Message Types ------//
@@ -13,6 +14,7 @@ use crate::gui::window::Message;
 pub enum DatapackCallbackType {
     DatapackName(String),
     Description(ListEvent<TextEditEvent>),
+    Overlay(ListEvent<OverlayEditEvent>)
 }
 
 //------------//
@@ -31,52 +33,24 @@ enum TextEditEvent {
 //------------//
 
 #[derive(Debug, Clone)]
-pub struct PackInfoState {
-    pub is_default: bool,
-    pub description_state: DescriptionState,
-}
-
-impl PackInfoState {
-    pub fn new(datapack: &Datapack) -> Self {
-        Self {
-            is_default: false,
-            description_state: DescriptionState::new(datapack.description().len()),
-        }
-    }
+pub enum OverlayEditEvent {
+    Name(String)
 }
 
 //------------//
 
 #[derive(Debug, Clone)]
-pub struct DescriptionState {
-    collapsed: Vec<bool>
+pub struct PackInfoState {
+    pub description_state: ListState,
+    pub overlay_state: ListState,
 }
 
-impl DescriptionState {
-    fn new(count: usize) -> Self {
+impl PackInfoState {
+    pub fn new(datapack: &Datapack) -> Self {
         Self {
-            collapsed: vec![false; count]
+            description_state: ListState::new(datapack.description().len()),
+            overlay_state: ListState::new(datapack.overlays().len()),
         }
-    }
-}
-
-impl ListState for DescriptionState {
-    fn is_node_collapsed(&self, index: usize) -> bool {
-        *self.collapsed.get(index).unwrap_or(&false)
-    }
-
-    fn set_collapsed(&mut self, index: usize, collapsed: bool) {
-        if let Some(mut val) = self.collapsed.get_mut(index) {
-            *val = collapsed;
-        }
-    }
-
-    fn add(&mut self, index: usize) {
-        self.collapsed.insert(index, false);
-    }
-
-    fn remove(&mut self, index: usize) {
-        self.collapsed.remove(index);
     }
 }
 
@@ -84,24 +58,37 @@ impl ListState for DescriptionState {
 //------ Message Processing ------//
 ////////////////////////////////////
 
-pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCallbackType, mut pack_info_state: PackInfoState) -> PackInfoState {
+pub fn handle_datapack_update(
+    datapack: &mut Datapack,
+    callback_type: DatapackCallbackType,
+    mut pack_info_state: PackInfoState
+) -> PackInfoState {
     use DatapackCallbackType::*;
     match callback_type {
         DatapackName(name) => datapack.set_name(&*name),
         Description(list_event) => widgets::handle_list_event(list_event, datapack.description_mut(), &mut pack_info_state.description_state,
             |data, edit_event, index| {
-                let mut item = data.get_mut(index).expect("List edit event should not return values out of range");
+                let mut text = data.get_mut(index).expect("List edit event should not return values out of range");
 
                 use TextEditEvent::*;
                 match edit_event {
-                    Text(text) => {
-                        item.text = text;
+                    Text(txt) => {
+                        text.text = txt;
                     }
-                    Bold(is_bold) => item.is_bold = is_bold,
-                    Italic(is_italic) => item.is_italic = is_italic,
-                    Underlined(is_underlined) => item.is_underlined = is_underlined,
-                    Strikethrough(is_strikethrough) => item.is_strikethrough = is_strikethrough,
-                    Obfuscated(is_obfuscated) => item.is_obfuscated = is_obfuscated,
+                    Bold(is_bold) => text.is_bold = is_bold,
+                    Italic(is_italic) => text.is_italic = is_italic,
+                    Underlined(is_underlined) => text.is_underlined = is_underlined,
+                    Strikethrough(is_strikethrough) => text.is_strikethrough = is_strikethrough,
+                    Obfuscated(is_obfuscated) => text.is_obfuscated = is_obfuscated,
+                }
+            }),
+        Overlay(list_event) => widgets::handle_list_event(list_event, datapack.overlays_mut(), &mut pack_info_state.overlay_state,
+            |data, edit_event, index| {
+                let mut overlay = data.get_mut(index).expect("List edit event should not return values out of range");
+
+                use OverlayEditEvent::*;
+                match edit_event {
+                    Name(name) => overlay.name = name,
                 }
             }),
     }
@@ -112,22 +99,35 @@ pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCa
 //------ GUI generation ------//
 ////////////////////////////////
 
-pub fn get_pack_info_gui<'a>(datapack: &Datapack, pack_info_state: &PackInfoState) -> Element<'a, Message> {
+pub fn get_pack_info_gui<'a>(
+    datapack: &Datapack,
+    pack_info_state: &PackInfoState
+) -> Element<'a, Message, <ApplicationWindow as Application>::Theme> {
     let name = widgets::text_editor("Name", "Name", &datapack.name(),
         |s| WidgetCallbackChannel::PackInfo(DatapackCallbackType::DatapackName(s)));
-    let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state,
+
+    let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state, true,
         |text| widget::text(&text.text).into(),
         get_text_gui,
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(list_event)));
 
+    let overlays = widgets::list("Overlays", datapack.overlays(), &pack_info_state.overlay_state, false,
+        |overlay| widget::text(&overlay.name).into(),
+        get_overlay_gui,
+        |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Overlay(list_event)));
+
     Column::new()
         .push(name)
         .push(description)
-        .spacing(widgets::SPACING_SMALL)
+        .push(overlays)
+        .spacing(widgets::SPACING_LARGE)
         .into()
 }
 
-fn get_text_gui<'a>(text: &util::Text, index: usize) -> Element<'a, Message> {
+fn get_text_gui<'a>(
+    text: &util::Text,
+    index: usize
+) -> Element<'a, Message> {
     let text_editor = widgets::text_editor("Text", "Text", &text.text,
         move |s| {
             WidgetCallbackChannel::PackInfo(
@@ -163,6 +163,24 @@ fn get_text_gui<'a>(text: &util::Text, index: usize) -> Element<'a, Message> {
         .push(strikethrough)
         .push(obfuscated)
         .spacing(5)
-    )
-    .into()
+    ).into()
+}
+
+fn get_overlay_gui<'a>(
+    overlay: &Overlay,
+    index: usize
+) -> Element<'a, Message, <ApplicationWindow as Application>::Theme> {
+    let text_editor = widgets::text_editor("Overlay", "Name", &overlay.name,
+        move |s| {
+            WidgetCallbackChannel::PackInfo(
+                DatapackCallbackType::Overlay(
+                    ListEvent::Edit(OverlayEditEvent::Name(s), index)
+                )
+            )
+        });
+
+    container(Column::new()
+        .push(text_editor)
+        .spacing(5)
+    ).into()
 }

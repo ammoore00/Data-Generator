@@ -13,7 +13,7 @@ use strum_macros::{Display, FromRepr};
 use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
-use crate::data::datapack::DatapackFormat::Format18;
+use crate::data::datapack::DatapackFormat::{Format18, Format41};
 use crate::data::biome::SerializableBiomeData;
 use crate::data::util;
 use crate::data::util::{ColorParseError, ResourceLocation, SerializableText};
@@ -60,6 +60,10 @@ impl DatapackFormat {
 
     pub fn get_minimum_overlay_version() -> Self {
         Format18
+    }
+
+    pub fn get_latest() -> Self {
+        Format41
     }
 }
 
@@ -384,6 +388,9 @@ impl Datapack {
 
     pub fn description(&self) -> &Vec<util::Text> { &self.description }
     pub fn description_mut(&mut self) -> &mut Vec<util::Text> { &mut self.description }
+
+    pub fn overlays(&self) -> &Vec<Overlay> { &self.overlays }
+    pub fn overlays_mut(&mut self) -> &mut Vec<Overlay> { &mut self.overlays }
 }
 
 impl TryFrom<SerializableDatapack> for Datapack {
@@ -470,9 +477,9 @@ pub enum DataValue {
 
 #[derive(Debug)]
 pub struct Overlay {
-    name: String,
-    min_format: DatapackFormat,
-    max_format: DatapackFormat
+    pub name: String,
+    pub min_format: DatapackFormat,
+    pub max_format: DatapackFormat
 }
 
 impl Overlay {
@@ -509,6 +516,12 @@ impl Overlay {
             min_format,
             max_format
         })
+    }
+}
+
+impl Default for Overlay {
+    fn default() -> Self {
+        Self::from_single_format(String::from(""), DatapackFormat::get_latest()).unwrap()
     }
 }
 

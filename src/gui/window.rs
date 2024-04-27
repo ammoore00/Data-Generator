@@ -5,8 +5,8 @@ use iced::theme::Button;
 use iced::widget::{self, Container, Row, Column, PaneGrid, Rule};
 use iced::widget::pane_grid::{self, Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
-use crate::gui::{datapack, widgets};
-use crate::gui::datapack::PackInfoState;
+use crate::gui::{pack_info, widgets};
+use crate::gui::pack_info::PackInfoState;
 use crate::gui::widgets::WidgetCallbackChannel;
 
 #[derive(Debug, Clone)]
@@ -30,8 +30,7 @@ pub enum MainContentState {
 //------------//
 
 pub struct ApplicationWindow {
-    default: Datapack,
-    terralith: Datapack,
+    datapack: Datapack,
     state: MainContentState,
 
     panes: pane_grid::State<PaneState>,
@@ -42,13 +41,13 @@ impl Default for ApplicationWindow {
     fn default() -> Self {
         let filepath_default = "data/1-20-4.zip";
 
-        let ser_default = SerializableDatapack::from_zip(filepath_default).unwrap();
-        let default = Datapack::try_from(ser_default).unwrap();
+        let serialized_datapack = SerializableDatapack::from_zip(filepath_default).unwrap();
+        let datapack = Datapack::try_from(serialized_datapack).unwrap();
 
         let filepath_terralith = "data/Terralith_1.20_v2.4.11.zip";
 
-        let ser_terralith = SerializableDatapack::from_zip(filepath_terralith).unwrap();
-        let terralith = Datapack::try_from(ser_terralith).unwrap();
+        let datapack = SerializableDatapack::from_zip(filepath_terralith).unwrap();
+        let datapack = Datapack::try_from(datapack).unwrap();
 
         let file_tree_pane = PaneState::new(PaneType::FileTree);
         let main_content_pain = PaneState::new(PaneType::MainContent);
@@ -67,11 +66,10 @@ impl Default for ApplicationWindow {
                 }),
             });
 
-        let state = MainContentState::PackInfo(PackInfoState::new(&default));
+        let state = MainContentState::PackInfo(PackInfoState::new(&datapack));
 
         Self {
-            default,
-            terralith,
+            datapack,
             state,
 
             panes,
@@ -102,20 +100,24 @@ impl Application for ApplicationWindow {
             //------ Program Functionality ------//
             ///////////////////////////////////////
             SwitchPacks => {
-                if let PackInfo(pack_info_state) = &self.state {
-                    // TODO rewrite for actual datapack switching
-                    let is_default = pack_info_state.is_default;
-                    let mut new_state = PackInfoState::new(&self.terralith);
-                    new_state.is_default = !is_default;
-                    self.state = PackInfo(new_state);
+                let filepath_default = "data/1-20-4.zip";
+                let filepath_terralith = "data/Terralith_1.20_v2.4.11.zip";
+
+                if self.datapack.name() == "1-20-4" {
+                    let datapack = SerializableDatapack::from_zip(filepath_terralith).unwrap();
+                    self.datapack = Datapack::try_from(datapack).unwrap();
+                }
+                else {
+                    let datapack = SerializableDatapack::from_zip(filepath_default).unwrap();
+                    self.datapack = Datapack::try_from(datapack).unwrap();
                 }
             }
             Input(callback_channel) => {
                 match callback_channel {
                     WidgetCallbackChannel::PackInfo(callback_type) => {
                         if let PackInfo(pack_info_state) = self.state.clone() {
-                            let datapack = self.get_active_datapack_mut();
-                            self.state = PackInfo(datapack::handle_datapack_update(datapack, callback_type, pack_info_state));
+                            let datapack = &mut self.datapack;
+                            self.state = PackInfo(pack_info::handle_datapack_update(datapack, callback_type, pack_info_state));
                         }
                         else {
                             panic!("Illegal state - pack info callback requested while not in pack info state!")
@@ -145,7 +147,7 @@ impl Application for ApplicationWindow {
 
             title = match state.pane_type {
                 PaneType::FileTree => {
-                    let title_text = &self.get_active_datapack().name();
+                    let title_text = &self.datapack.name();
                     title.push(widget::text(title_text))
                 }
                 PaneType::MainContent => {
@@ -190,28 +192,6 @@ impl Application for ApplicationWindow {
 }
 
 impl<'a> ApplicationWindow {
-    fn get_active_datapack(&self) -> &Datapack {
-        let mut datapack = &self.default;
-        if let MainContentState::PackInfo(pack_info_state) = &self.state {
-            if !pack_info_state.is_default {
-                datapack = &self.terralith;
-            }
-        }
-
-        datapack
-    }
-
-    fn get_active_datapack_mut(&mut self) -> &mut Datapack {
-        let mut datapack = &mut self.default;
-        if let MainContentState::PackInfo(pack_info_state) = &self.state {
-            if !pack_info_state.is_default {
-                datapack = &mut self.terralith;
-            }
-        }
-
-        datapack
-    }
-
     fn get_header(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
         widget::container(
             Row::new()
@@ -245,7 +225,7 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_content_view(&'a self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        let datapack = self.get_active_datapack();
+        let datapack = &self.datapack;
         let pack_info_state = if let MainContentState::PackInfo(pack_info_state) = &self.state {
             pack_info_state
         }
@@ -253,7 +233,7 @@ impl<'a> ApplicationWindow {
 
         widget::container(
             Column::new()
-                .push(datapack::get_pack_info_gui(datapack, pack_info_state))
+                .push(pack_info::get_pack_info_gui(datapack, pack_info_state))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
@@ -265,7 +245,7 @@ impl<'a> ApplicationWindow {
     }
 
     fn get_preview(&self) -> Container<'a, <ApplicationWindow as Application>::Message> {
-        let datapack = self.get_active_datapack();
+        let datapack = &self.datapack;
 
         widget::container(
             Column::new()
