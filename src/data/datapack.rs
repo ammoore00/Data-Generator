@@ -383,6 +383,7 @@ impl Datapack {
     pub fn set_name(&mut self, name: &str) { self.name = String::from(name) }
 
     pub fn description(&self) -> &Vec<util::Text> { &self.description }
+    pub fn description_mut(&mut self) -> &mut Vec<util::Text> { &mut self.description }
 }
 
 impl TryFrom<SerializableDatapack> for Datapack {
