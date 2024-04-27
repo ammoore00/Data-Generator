@@ -111,6 +111,8 @@ impl Application for ApplicationWindow {
                     let datapack = SerializableDatapack::from_zip(filepath_default).unwrap();
                     self.datapack = Datapack::try_from(datapack).unwrap();
                 }
+
+                self.state = PackInfo(PackInfoState::new(&self.datapack));
             }
             Input(callback_channel) => {
                 match callback_channel {

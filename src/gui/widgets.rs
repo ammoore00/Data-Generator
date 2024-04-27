@@ -20,30 +20,32 @@ pub enum WidgetCallbackChannel {
     PackInfo(DatapackCallbackType)
 }
 
-//------------//
+///////////////////////////////
+//------ Basic Editors ------//
+///////////////////////////////
 
 pub fn text_editor<'a, F>(
     label: &str,
     default: &str,
-    state: &str,
+    text: &str,
     callback_channel: F
 ) -> Row<'a, Message, <ApplicationWindow as Application>::Theme>
 where F: Fn(String) -> WidgetCallbackChannel + 'a {
-    println!("{:?}", &state);
-    let state = state.replace("\n", "\\n");
-    println!("{:?}", &state);
+    let text = text.replace("\n", "\\n");
 
     Row::new()
         .push(widget::text(format!("{label}:")))
-        .push(widget::text_input(default, &*state)
-            .on_input(move |text| {
-                Message::Input(callback_channel(text.replace("\\n", "\n")))
+        .push(widget::text_input(default, &*text)
+            .on_input(move |s| {
+                Message::Input(callback_channel(s.replace("\\n", "\n")))
             }))
         .align_items(Alignment::Center)
         .spacing(SPACING_LARGE)
 }
 
-//------------//
+/////////////////////////////////
+//------ Boolean Toggles ------//
+/////////////////////////////////
 
 pub fn boolean_toggle<'a, F>(
     label: &str,
@@ -126,7 +128,9 @@ where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
         .align_items(Alignment::Center)
 }
 
-//------------//
+///////////////////////////
+//------ Dropdowns ------//
+///////////////////////////
 
 pub fn dropdown<'a, DropdownType, MessageCallback>(
     label: Option<&str>,
@@ -137,17 +141,19 @@ where
     DropdownType: for<'b> DropdownOption<'b>,
     MessageCallback: Fn(DropdownEvent<DropdownType>) -> WidgetCallbackChannel
 {
-    let dropdown_underlay: Row<'a, Message, <ApplicationWindow as Application>::Theme> = Row::new()
-        .push(widget::button(widget::text(format!("{} | v", state.selected)))
-            .on_press(Message::Input(message_callback(DropdownEvent::Expand))));
+    let dropdown_underlay = widget::button(widget::text(format!("{} | v", state.selected)))
+        .on_press(Message::Input(message_callback(DropdownEvent::Expand)))
+        .style(theme::Button::Secondary);
 
-    let dropdown_overlay: Column<'a, Message, <ApplicationWindow as Application>::Theme> = Column::with_children(
+    let dropdown_overlay = widget::container(Column::with_children(
         DropdownType::variants().iter().map(|variant| {
-            Row::new()
-                .push(widget::button(widget::text(variant.to_string()))
-                    .on_press(Message::Input(message_callback(DropdownEvent::Select(*variant)))))
+            widget::button(widget::text(variant.to_string()))
+                .on_press(Message::Input(message_callback(DropdownEvent::Select(*variant))))
+                .style(theme::Button::Secondary)
+                .width(Length::Fill)
                 .into()
-        }));
+        })))
+        .style(theme::Container::Box);
 
     let dropdown = DropDown::new(dropdown_underlay, dropdown_overlay, state.expanded)
         .on_dismiss(Message::Input(message_callback(DropdownEvent::Dismiss)));
@@ -164,9 +170,13 @@ where
     }
 }
 
+//------------//
+
 pub trait DropdownOption<'a>: Display + Copy {
     fn variants() -> &'a[Self] where Self: Sized;
 }
+
+//------------//
 
 #[derive(Clone, Debug, Display)]
 pub enum DropdownEvent<T>
@@ -176,6 +186,8 @@ where T: for<'a> DropdownOption<'a> {
     Dismiss,
 }
 
+//------------//
+
 #[derive(Clone, Debug)]
 pub struct DropdownState<T>
 where T: for<'a> DropdownOption<'a> {
@@ -183,20 +195,22 @@ where T: for<'a> DropdownOption<'a> {
     pub(crate) expanded: bool,
 }
 
-//------------//
+///////////////////////
+//------ Lists ------//
+///////////////////////
 
-pub fn list<'a, T, EditEventType, InlineWidgetCreator, MessageCallback, State>(
+pub fn list<'a, T, EditEventType, InlineWidgetCreator, MessageCallback, ContentState>(
     label: &str,
     data: &Vec<T>,
     list_state: &ListState,
-    content_state: &State,
-    settings: ListSettings<'a, T>,
+    content_state: &ContentState,
+    settings: ListSettings<'a, T, ContentState>,
     inline_widget_creator: InlineWidgetCreator,
     message_callback: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
     T: Default,
-    InlineWidgetCreator: Fn(&T, usize, bool, &State) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>>,
+    InlineWidgetCreator: Fn(&T, usize, bool, &ContentState) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
     let button_size = 24.;
@@ -282,14 +296,19 @@ where
 
         let inline_widget = inline_widget_creator(item, i, collapsed, content_state);
 
+        let mut should_render_collapse_button = false;
+
         let entry = if let ListInlineState::Extended(extended_widget) = &settings.inline_state {
             if let Some(inline_widget) = inline_widget {
                 controls = controls.push(inline_widget);
             }
 
             let mut entry = Column::new().push(controls);
-            if !collapsed {
-                entry = entry.push(extended_widget(item, i));
+            if let Some(extended_widget) = extended_widget(item, i, content_state) {
+                if !collapsed {
+                    entry = entry.push(extended_widget);
+                }
+                should_render_collapse_button = true;
             }
             entry
         }
@@ -303,13 +322,7 @@ where
         .push(Rule::horizontal(STANDARD_RULE_WIDTH))
         .spacing(SPACING_LARGE);
 
-        let entry = if let ListInlineState::Inline = settings.inline_state {
-            Row::new()
-                .push(widget::text("")
-                    .width(Length::Fixed(button_size + 2. * sidebar_padding as f32)))
-                .push(entry)
-        }
-        else {
+        let entry = if should_render_collapse_button {
             let collapse_text = if collapsed { ">" } else { "v" };
 
             let collapse_button = widget::button(
@@ -327,6 +340,12 @@ where
 
             Row::new()
                 .push(collapse_button)
+                .push(entry)
+        }
+        else {
+            Row::new()
+                .push(widget::text("")
+                    .width(Length::Fixed(button_size + 2. * sidebar_padding as f32)))
                 .push(entry)
         };
 
@@ -412,13 +431,13 @@ impl ListState {
 
 //------------//
 
-pub struct ListSettings<'a, T>
+pub struct ListSettings<'a, T, S>
 where T: Default {
     pub required: bool,
-    pub inline_state: ListInlineState<'a, T>
+    pub inline_state: ListInlineState<'a, T, S>
 }
 
-impl<'a, T> Default for ListSettings<'a, T>
+impl<'a, T, S> Default for ListSettings<'a, T, S>
 where T: Default {
     fn default() -> Self {
         Self {
@@ -430,10 +449,10 @@ where T: Default {
 
 //------------//
 
-pub enum ListInlineState<'a, T>
+pub enum ListInlineState<'a, T, S>
 where T: Default {
     Inline,
-    Extended(Box<dyn Fn(&T, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>>)
+    Extended(Box<dyn Fn(&T, usize, &S) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>>>)
 }
 
 //------------//

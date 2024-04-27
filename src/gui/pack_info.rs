@@ -1,10 +1,10 @@
-use iced::{Application, Element, widget};
+use iced::{Alignment, Application, Element, widget};
 use iced::widget::{Column, container, Row};
 use iced_aw::DropDown;
 use strum_macros::Display;
 use crate::data::datapack::{Datapack, Overlay};
 use crate::data::util;
-use crate::gui::widgets::{self, DropdownEvent, DropdownOption, DropdownState, ListEvent, ListInlineState, ListSettings, ListState, WidgetCallbackChannel};
+use crate::gui::widgets::{self, DropdownEvent, DropdownOption, DropdownState, ListEvent, ListInlineState, ListSettings, ListState, SPACING_LARGE, WidgetCallbackChannel};
 use crate::gui::window::{ApplicationWindow, Message};
 
 ///////////////////////////////
@@ -169,15 +169,15 @@ pub fn get_pack_info_gui<'a>(
     let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state.collapsed_state, &pack_info_state,
         ListSettings {
             required: true,
-            inline_state: ListInlineState::Extended(Box::new(get_text_gui)),
+            inline_state: ListInlineState::Extended(Box::new(|t, i, s| text_gui_extended(t, i, s))),
         },
-        |text, index, collapsed, state| get_text_header_widget(text, index, collapsed, state),
+        |text, index, collapsed, state| text_header_widget(text, index, collapsed, state),
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Content(list_event))));
 
     let overlays = widgets::list("Overlays", datapack.overlays(), &pack_info_state.overlay_state, &pack_info_state,
         ListSettings {
             required: false,
-            inline_state: ListInlineState::Extended(Box::new(get_overlay_gui))
+            inline_state: ListInlineState::Extended(Box::new(|o, i, s| get_overlay_gui(o, i, s)))
         },
         |overlay: &Overlay, _, collapsed, _: &&PackInfoState| {
             if collapsed { Some(widget::text(&overlay.name).into()) } else { None }
@@ -192,20 +192,19 @@ pub fn get_pack_info_gui<'a>(
         .into()
 }
 
-fn get_text_gui<'a>(
+fn text_gui_extended<'a>(
     text: &util::Text,
-    index: usize
-) -> Element<'a, Message> {
+    index: usize,
+    pack_info_state: &PackInfoState
+) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>> {
+    if let TextType::String =  pack_info_state.description_state.text_type_state[index].selected {
+        return None;
+    }
+
     let text_editor = widgets::text_editor("Text", "Text", &text.text,
-        move |s| {
-            WidgetCallbackChannel::PackInfo(
-                DatapackCallbackType::Description(
-                    DescriptionUpdateType::Content(
-                        ListEvent::Edit(TextEditEvent::Text(s), index)
-                    )
-                )
-            )
-        });
+        move |s| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Content(
+            ListEvent::Edit(TextEditEvent::Text(s), index))
+        )));
 
     let bold = widgets::boolean_toggle_optional("Bold", text.is_bold,
         move |is_bold| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Content(
@@ -225,7 +224,7 @@ fn get_text_gui<'a>(
 
     // TODO: color and font
 
-    container(Column::new()
+    let container = container(Column::new()
         .push(text_editor)
         .push(bold)
         .push(italic)
@@ -233,10 +232,12 @@ fn get_text_gui<'a>(
         .push(strikethrough)
         .push(obfuscated)
         .spacing(5)
-    ).into()
+    ).into();
+
+    Some(container)
 }
 
-fn get_text_header_widget<'a>(
+fn text_header_widget<'a>(
     text: &util::Text,
     index: usize,
     collapsed: bool,
@@ -246,22 +247,38 @@ fn get_text_header_widget<'a>(
         WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Type(index, dropdown_event)))
     });
 
-    let preview = widget::text(&text.text.replace("\n", "\\n"));
+    let widget = if let TextType::String = pack_info_state.description_state.text_type_state[index].selected {
+        let text_editor = widget::text_input("Text", &text.text.replace("\n", "\\n"))
+            .on_input(move |s| Message::Input(WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Content(
+                ListEvent::Edit(TextEditEvent::Text(s.replace("\\n", "\n")), index))
+            ))));
 
-    let mut row = Row::new()
-        .push(dropdown);
-
-    if collapsed {
-        row = row.push(preview);
+        Row::new()
+            .push(dropdown)
+            .push(text_editor)
     }
+    else {
+        let mut header = Row::new()
+            .push(dropdown);
 
-    Some(row.into())
+        if collapsed {
+            header = header.push(widget::text(&text.text.replace("\n", "\\n")))
+        }
+
+        header
+    }
+    .align_items(Alignment::Center)
+    .spacing(SPACING_LARGE)
+    .into();
+
+    Some(widget)
 }
 
 fn get_overlay_gui<'a>(
     overlay: &Overlay,
-    index: usize
-) -> Element<'a, Message, <ApplicationWindow as Application>::Theme> {
+    index: usize,
+    _pack_info_state: &PackInfoState
+) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>> {
     let text_editor = widgets::text_editor("Overlay", "Name", &overlay.name,
         move |s| {
             WidgetCallbackChannel::PackInfo(
@@ -271,8 +288,8 @@ fn get_overlay_gui<'a>(
             )
         });
 
-    container(Column::new()
+    Some(container(Column::new()
         .push(text_editor)
         .spacing(5)
-    ).into()
+    ).into())
 }

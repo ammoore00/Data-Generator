@@ -11,6 +11,7 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/gui/pack_info.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/gui/pack_info.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/gui/widgets.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/gui/widgets.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/gui/window.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/gui/window.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -120,7 +121,7 @@
       <workItem from="1713316645426" duration="5849000" />
       <workItem from="1713387504690" duration="39118000" />
       <workItem from="1713893750744" duration="11187000" />
-      <workItem from="1713911701502" duration="64898000" />
+      <workItem from="1713911701502" duration="68339000" />
     </task>
     <servers />
   </component>
