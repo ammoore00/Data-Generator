@@ -4,7 +4,7 @@ use iced_aw::DropDown;
 use strum_macros::Display;
 use crate::data::datapack::{Datapack, Overlay};
 use crate::data::util;
-use crate::gui::widgets::{self, ListEvent, ListInlineState, ListSettings, ListState, WidgetCallbackChannel};
+use crate::gui::widgets::{self, DropdownEvent, DropdownOption, DropdownState, ListEvent, ListInlineState, ListSettings, ListState, WidgetCallbackChannel};
 use crate::gui::window::{ApplicationWindow, Message};
 
 ///////////////////////////////
@@ -23,7 +23,7 @@ pub enum DatapackCallbackType {
 #[derive(Debug, Clone)]
 enum DescriptionUpdateType {
     Content(ListEvent<TextEditEvent>),
-    Type(usize, TextTypeEvent),
+    Type(usize, DropdownEvent<TextType>),
 }
 
 //------------//
@@ -41,20 +41,17 @@ enum TextEditEvent {
 
 //------------//
 
-#[derive(Debug, Clone)]
-enum TextTypeEvent {
-    Select(TextType),
-    Dismiss,
-    Expand
-}
-
-//------------//
-
-#[derive(Clone, Debug, Default, Display)]
+#[derive(Clone, Copy, Debug, Default, Display)]
 enum TextType {
     #[default]
     String,
     Object
+}
+
+impl<'a> DropdownOption<'a> for TextType {
+    fn variants() -> &'a [Self] {
+        &TEXT_TYPE_CHOICES[..]
+    }
 }
 
 const TEXT_TYPE_CHOICES: [TextType; 2] = [TextType::String, TextType::Object];
@@ -77,7 +74,7 @@ pub struct PackInfoState {
 impl PackInfoState {
     pub fn new(datapack: &Datapack) -> Self {
         let size = datapack.description().len();
-        let text_type_state = vec![TextTypeState {
+        let text_type_state = vec![DropdownState {
             selected: TextType::String,
             expanded: false,
         }; size];
@@ -97,15 +94,7 @@ impl PackInfoState {
 #[derive(Debug, Clone)]
 pub struct DescriptionState {
     collapsed_state: ListState,
-    text_type_state: Vec<TextTypeState>
-}
-
-//------------//
-
-#[derive(Debug, Clone)]
-pub struct TextTypeState {
-    selected: TextType,
-    expanded: bool
+    text_type_state: Vec<DropdownState<TextType>>
 }
 
 ////////////////////////////////////
@@ -142,7 +131,7 @@ pub fn handle_datapack_update(
             DescriptionUpdateType::Type(index, type_event) => {
                 let text_type_state = &mut pack_info_state.description_state.text_type_state[index];
 
-                use TextTypeEvent::*;
+                use DropdownEvent::*;
                 match type_event {
                     Select(text_type) => {
                         text_type_state.selected = text_type;
@@ -253,19 +242,9 @@ fn get_text_header_widget<'a>(
     collapsed: bool,
     pack_info_state: &PackInfoState
 ) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>> {
-    let dropdown_underlay: Row<'a, Message, <ApplicationWindow as Application>::Theme> = Row::new()
-        .push(widget::button(widget::text(format!("{} | v", pack_info_state.description_state.text_type_state[index].selected)))
-            .on_press(Message::Input(WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Type(index, TextTypeEvent::Expand))))));
-
-    let dropdown_overlay: Column<'a, Message, <ApplicationWindow as Application>::Theme> = Column::with_children(TEXT_TYPE_CHOICES.map(|text_type| {
-        Row::new()
-            .push(widget::button(widget::text(text_type.to_string()))
-                .on_press(Message::Input(WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Type(index, TextTypeEvent::Select(text_type)))))))
-            .into()
-    }));
-
-    let dropdown = DropDown::new(dropdown_underlay, dropdown_overlay, pack_info_state.description_state.text_type_state[index].expanded)
-        .on_dismiss(Message::Input(WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Type(index, TextTypeEvent::Dismiss)))));
+    let dropdown = widgets::dropdown(None, &pack_info_state.description_state.text_type_state[index], |dropdown_event| {
+        WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionUpdateType::Type(index, dropdown_event)))
+    });
 
     let preview = widget::text(&text.text.replace("\n", "\\n"));
 

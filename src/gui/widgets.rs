@@ -1,7 +1,10 @@
+use std::fmt::Display;
 use iced::{Alignment, Application, Element, Length, settings};
 use iced::alignment::{Horizontal, Vertical};
 use iced::theme;
 use iced::widget::{self, Column, Row, Rule};
+use iced_aw::DropDown;
+use strum_macros::Display;
 use crate::gui::pack_info::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
 
@@ -125,6 +128,63 @@ where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
 
 //------------//
 
+pub fn dropdown<'a, DropdownType, MessageCallback>(
+    label: Option<&str>,
+    state: &DropdownState<DropdownType>,
+    message_callback: MessageCallback
+) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
+where
+    DropdownType: for<'b> DropdownOption<'b>,
+    MessageCallback: Fn(DropdownEvent<DropdownType>) -> WidgetCallbackChannel
+{
+    let dropdown_underlay: Row<'a, Message, <ApplicationWindow as Application>::Theme> = Row::new()
+        .push(widget::button(widget::text(format!("{} | v", state.selected)))
+            .on_press(Message::Input(message_callback(DropdownEvent::Expand))));
+
+    let dropdown_overlay: Column<'a, Message, <ApplicationWindow as Application>::Theme> = Column::with_children(
+        DropdownType::variants().iter().map(|variant| {
+            Row::new()
+                .push(widget::button(widget::text(variant.to_string()))
+                    .on_press(Message::Input(message_callback(DropdownEvent::Select(*variant)))))
+                .into()
+        }));
+
+    let dropdown = DropDown::new(dropdown_underlay, dropdown_overlay, state.expanded)
+        .on_dismiss(Message::Input(message_callback(DropdownEvent::Dismiss)));
+
+    if let Some(label) = label {
+        Row::new()
+            .push(widget::text(label))
+            .push(dropdown)
+            .spacing(SPACING_SMALL)
+            .into()
+    }
+    else {
+        dropdown.into()
+    }
+}
+
+pub trait DropdownOption<'a>: Display + Copy {
+    fn variants() -> &'a[Self] where Self: Sized;
+}
+
+#[derive(Clone, Debug, Display)]
+pub enum DropdownEvent<T>
+where T: for<'a> DropdownOption<'a> {
+    Select(T),
+    Expand,
+    Dismiss,
+}
+
+#[derive(Clone, Debug)]
+pub struct DropdownState<T>
+where T: for<'a> DropdownOption<'a> {
+    pub(crate) selected: T,
+    pub(crate) expanded: bool,
+}
+
+//------------//
+
 pub fn list<'a, T, EditEventType, InlineWidgetCreator, MessageCallback, State>(
     label: &str,
     data: &Vec<T>,
@@ -132,7 +192,7 @@ pub fn list<'a, T, EditEventType, InlineWidgetCreator, MessageCallback, State>(
     content_state: &State,
     settings: ListSettings<'a, T>,
     inline_widget_creator: InlineWidgetCreator,
-    callback_channel: MessageCallback
+    message_callback: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
     T: Default,
@@ -144,7 +204,7 @@ where
 
     let name = widget::text(label);
     let add_top = widget::button(" + ")
-        .on_press(Message::Input(callback_channel(ListEvent::Add(0))))
+        .on_press(Message::Input(message_callback(ListEvent::Add(0))))
         .style(theme::Button::Positive);
     let mut header = Row::new()
         .push(name).push(add_top)
@@ -162,7 +222,7 @@ where
                 widget::text("+")
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))
-            .on_press(Message::Input(callback_channel(ListEvent::Add(i + 1))))
+            .on_press(Message::Input(message_callback(ListEvent::Add(i + 1))))
             .style(theme::Button::Positive)
             .height(Length::Fixed(button_size))
             .width(Length::Fixed(button_size))
@@ -171,7 +231,7 @@ where
                 widget::text("-")
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))
-            .on_press(Message::Input(callback_channel(ListEvent::Remove(i))))
+            .on_press(Message::Input(message_callback(ListEvent::Remove(i))))
             .style(theme::Button::Destructive)
             .height(Length::Fixed(button_size))
             .width(Length::Fixed(button_size))
@@ -204,10 +264,10 @@ where
             .padding(0);
 
         if i > 0 {
-            up_button = up_button.on_press(Message::Input(callback_channel(ListEvent::Move(MoveDirection::Up, i))))
+            up_button = up_button.on_press(Message::Input(message_callback(ListEvent::Move(MoveDirection::Up, i))))
         }
         if i < data.len() - 1 {
-            down_button = down_button.on_press(Message::Input(callback_channel(ListEvent::Move(MoveDirection::Down, i))))
+            down_button = down_button.on_press(Message::Input(message_callback(ListEvent::Move(MoveDirection::Down, i))))
         }
 
         let move_buttons = Column::new()
@@ -256,7 +316,7 @@ where
                 widget::text(collapse_text)
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))
-                .on_press(Message::Input(callback_channel(ListEvent::Collapse(i, !list_state.is_node_collapsed(i)))))
+                .on_press(Message::Input(message_callback(ListEvent::Collapse(i, !list_state.is_node_collapsed(i)))))
                 .style(theme::Button::Secondary)
                 .height(Length::Fixed(button_size))
                 .width(Length::Fixed(button_size))
