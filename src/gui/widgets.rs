@@ -1,7 +1,6 @@
-use iced::{Alignment, Application, Element, Length};
+use iced::{Alignment, Application, Element};
 use iced::theme;
 use iced::widget::{self, Column, Row, Rule};
-use crate::data::util;
 use crate::gui::datapack::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
 
@@ -82,15 +81,15 @@ where F: Fn(bool) -> WidgetCallbackChannel + 'a {
         .align_items(Alignment::Center)
 }
 
-pub fn list<'a, T, FWidget, FCallback>(
+pub fn list<'a, DataType, EditEventType, WidgetCreator, MessageCallback>(
     label: &str,
-    state: &Vec<T>,
-    widget_creator: FWidget,
-    callback_channel: FCallback
+    state: &Vec<DataType>,
+    widget_creator: WidgetCreator,
+    callback_channel: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
-    FWidget: Fn(&T, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
-    FCallback: Fn(ListEvent<T>) -> WidgetCallbackChannel + 'a,
+    WidgetCreator: Fn(&DataType, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
+    MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
     let name = widget::text(label);
     let add_top = widget::button(" + ")
@@ -160,14 +159,13 @@ where
         ).into()
 }
 
-pub fn handle_list_event<T, F>(
-    list_event: ListEvent<T>,
+pub fn handle_list_event<E, T, F>(
+    list_event: ListEvent<E>,
     data: &mut Vec<T>,
-    edit_callback: F
-)
+    mut edit_callback: F)
 where
-    F: Fn(ListEvent<T>),
-    T: Default
+    T: Default,
+    F: FnMut(&mut Vec<T>, E, usize)
 {
     match list_event {
         ListEvent::Add(location) => {
@@ -193,6 +191,6 @@ where
                 }
             }
         },
-        ListEvent::Edit(_, _) => edit_callback(list_event)
+        ListEvent::Edit(item, index) => edit_callback(data, item, index)
     }
 }
