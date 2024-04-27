@@ -151,11 +151,11 @@ pub struct Text {
     pub color: Option<Color>,
     pub font: Option<ResourceLocation>,
 
-    pub is_bold: bool,
-    pub is_italic: bool,
-    pub is_underlined: bool,
-    pub is_strikethrough: bool,
-    pub is_obfuscated: bool,
+    pub is_bold: Option<bool>,
+    pub is_italic: Option<bool>,
+    pub is_underlined: Option<bool>,
+    pub is_strikethrough: Option<bool>,
+    pub is_obfuscated: Option<bool>,
 
     extra: Option<Vec<Text>>,
 }
@@ -169,11 +169,11 @@ impl Text {
             color: None,
             font: None,
 
-            is_bold: false,
-            is_italic: false,
-            is_underlined: false,
-            is_strikethrough: false,
-            is_obfuscated: false,
+            is_bold: None,
+            is_italic: None,
+            is_underlined: None,
+            is_strikethrough: None,
+            is_obfuscated: None,
 
             extra: None,
         }
@@ -301,11 +301,11 @@ impl TryFrom<SerializableText> for Text {
                     color,
                     font,
 
-                    is_bold: bold.unwrap_or(false),
-                    is_italic: italic.unwrap_or(false),
-                    is_underlined: underlined.unwrap_or(false),
-                    is_strikethrough: strikethrough.unwrap_or(false),
-                    is_obfuscated: obfuscated.unwrap_or(false),
+                    is_bold: bold,
+                    is_italic: italic,
+                    is_underlined: underlined,
+                    is_strikethrough: strikethrough,
+                    is_obfuscated: obfuscated,
 
                     extra: Some(extra_list),
                 })

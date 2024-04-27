@@ -1,9 +1,8 @@
 use iced::Element;
-use iced::widget::Column;
+use iced::widget::{Column, container, Row};
 use crate::data::datapack::Datapack;
 use crate::data::util;
-use crate::gui::datapack::DatapackCallbackType::{DatapackName, Description};
-use crate::gui::widgets::{self, AddLocation, ListEvent, WidgetCallbackChannel};
+use crate::gui::widgets::{self, ListEvent, WidgetCallbackChannel};
 use crate::gui::window::Message;
 
 ///////////////////////////////
@@ -13,16 +12,20 @@ use crate::gui::window::Message;
 #[derive(Debug, Clone)]
 pub enum DatapackCallbackType {
     DatapackName(String),
-    Description(ListEvent<TextEditEvent>)
+    Description(ListEvent<TextEditEvent>),
 }
 
 //------------//
 
 #[derive(Debug, Clone)]
-pub enum TextCallbackEvent {
-    Add,
-    Remove,
+enum TextEditEvent {
     Text(String),
+
+    Bold(Option<bool>),
+    Italic(Option<bool>),
+    Underlined(Option<bool>),
+    Strikethrough(Option<bool>),
+    Obfuscated(Option<bool>),
 }
 
 //------------//
@@ -45,14 +48,23 @@ impl PackInfoState {
 ////////////////////////////////////
 
 pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCallbackType) {
+    use DatapackCallbackType::*;
     match callback_type {
         DatapackName(name) => datapack.set_name(&*name),
         Description(list_event) => widgets::handle_list_event(list_event, datapack.description_mut(),
             |data, edit_event, index| {
+                let mut item = data.get_mut(index).expect("List edit event should not return values out of range");
+
+                use TextEditEvent::*;
                 match edit_event {
-                    TextEditEvent::Text(text) => {
-                        data.get_mut(index).expect("List edit event should not return values out of range").text = text;
+                    Text(text) => {
+                        item.text = text;
                     }
+                    Bold(is_bold) => item.is_bold = is_bold,
+                    Italic(is_italic) => item.is_italic = is_italic,
+                    Underlined(is_underlined) => item.is_underlined = is_underlined,
+                    Strikethrough(is_strikethrough) => item.is_strikethrough = is_strikethrough,
+                    Obfuscated(is_obfuscated) => item.is_obfuscated = is_obfuscated,
                 }
             }),
     }
@@ -62,23 +74,52 @@ pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCa
 //------ GUI generation ------//
 ////////////////////////////////
 
-pub fn get_datapack_gui<'a>(datapack: &Datapack) -> Element<'a, Message> {
-    let name = widgets::text_editor("Name", "Name", &datapack.name(), |s| WidgetCallbackChannel::PackInfo(DatapackName(s)));
+pub fn get_pack_info_gui<'a>(datapack: &Datapack) -> Element<'a, Message> {
+    let name = widgets::text_editor("Name", "Name", &datapack.name(),
+        |s| WidgetCallbackChannel::PackInfo(DatapackCallbackType::DatapackName(s)));
     let description = widgets::list("Description", datapack.description(), get_text_gui,
-        |list_event| WidgetCallbackChannel::PackInfo(Description(list_event)));
+        |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(list_event)));
 
-    Column::new().push(name).push(description).into()
+    Column::new()
+        .push(name)
+        .push(description)
+        .into()
 }
 
 fn get_text_gui<'a>(text: &util::Text, index: usize) -> Element<'a, Message> {
     let text_editor = widgets::text_editor("Text", "Text", &text.text,
-        move |s| WidgetCallbackChannel::PackInfo(Description(ListEvent::Edit(TextEditEvent::Text(s), index)))
-    ).into();
+        move |s| {
+            WidgetCallbackChannel::PackInfo(
+                DatapackCallbackType::Description(
+                    ListEvent::Edit(TextEditEvent::Text(s), index)
+                )
+            )
+        });
 
-    text_editor
-}
+    let bold = widgets::boolean_toggle("Bold", text.is_bold,
+        move |is_bold| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
+                ListEvent::Edit(TextEditEvent::Bold(is_bold), index))));
+    let italic = widgets::boolean_toggle("Italic", text.is_italic,
+        move |is_italic| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
+            ListEvent::Edit(TextEditEvent::Italic(is_italic), index))));
+    let underlined = widgets::boolean_toggle("Underlined", text.is_underlined,
+        move |is_underlined| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
+            ListEvent::Edit(TextEditEvent::Underlined(is_underlined), index))));
+    let strikethrough = widgets::boolean_toggle("Strikethrough", text.is_strikethrough,
+        move |is_strikethrough| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
+            ListEvent::Edit(TextEditEvent::Strikethrough(is_strikethrough), index))));
+    let obfuscated = widgets::boolean_toggle("Obfuscated", text.is_obfuscated,
+        move |is_obfuscated| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
+            ListEvent::Edit(TextEditEvent::Obfuscated(is_obfuscated), index))));
 
-#[derive(Debug, Clone)]
-enum TextEditEvent {
-    Text(String)
+    container(Column::new()
+        .push(text_editor)
+        .push(bold)
+        .push(italic)
+        .push(underlined)
+        .push(strikethrough)
+        .push(obfuscated)
+        .spacing(5)
+    )
+    .into()
 }

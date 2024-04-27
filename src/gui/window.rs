@@ -244,7 +244,7 @@ impl<'a> ApplicationWindow {
 
         widget::container(
             Column::new()
-                .push(datapack::get_datapack_gui(datapack))
+                .push(datapack::get_pack_info_gui(datapack))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)

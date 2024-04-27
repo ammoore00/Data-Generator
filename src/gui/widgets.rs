@@ -56,20 +56,39 @@ where F: Fn(String) -> WidgetCallbackChannel + 'a {
 
 pub fn boolean_toggle<'a, F>(
     label: &str,
-    state: bool,
+    state: Option<bool>,
     callback_channel: F
 ) -> Row<'a, Message, <ApplicationWindow as Application>::Theme>
-where F: Fn(bool) -> WidgetCallbackChannel + 'a {
-    let mut button_true = widget::button("True")
-        .style(theme::Button::Positive);
-    let mut button_false = widget::button("False")
-        .style(theme::Button::Destructive);
+where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
+    let mut button_true = widget::button("True");
+    let mut button_false = widget::button("False");
 
-    if state {
-        button_true = button_true.on_press(Message::Input(callback_channel(false)));
+    if let Some(state) = state {
+        if state {
+            button_true = button_true
+                .on_press(Message::Input(callback_channel(None)))
+                .style(theme::Button::Positive);
+            button_false = button_false
+                .on_press(Message::Input(callback_channel(Some(false))))
+                .style(theme::Button::Secondary);
+        }
+        else {
+            button_true = button_true
+                .on_press(Message::Input(callback_channel(Some(true))))
+                .style(theme::Button::Secondary);
+            button_false = button_false
+                .on_press(Message::Input(callback_channel(None)))
+                .style(theme::Button::Destructive);
+        }
     }
     else {
-        button_false = button_false.on_press(Message::Input(callback_channel(true)));
+        button_true = button_true
+            .on_press(Message::Input(callback_channel(Some(true))))
+            .style(theme::Button::Secondary);
+        button_false = button_false
+            .on_press(Message::Input(callback_channel(Some(false))))
+            .style(theme::Button::Secondary);
+
     }
 
     // TODO: Style
@@ -88,6 +107,7 @@ pub fn list<'a, DataType, EditEventType, WidgetCreator, MessageCallback>(
     callback_channel: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
+    DataType: Default,
     WidgetCreator: Fn(&DataType, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
