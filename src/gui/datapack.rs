@@ -1,9 +1,9 @@
-use iced::Element;
-use iced::widget::pane_grid;
+use iced::{Element, widget};
+use iced::widget::Column;
 use crate::data::datapack::Datapack;
 use crate::data::util;
-use crate::gui::datapack::DatapackCallbackType::DatapackName;
-use crate::gui::widgets::{self, ListPaneState, WidgetCallbackChannel};
+use crate::gui::datapack::DatapackCallbackType::{DatapackName, Description};
+use crate::gui::widgets::{self, WidgetCallbackChannel};
 use crate::gui::window::Message;
 
 #[derive(Debug, Clone)]
@@ -11,7 +11,7 @@ pub enum DatapackCallbackType {
     DatapackName(String),
     Description {
         index: u32,
-        event: TextCallbackEvent
+        //event: TextCallbackEvent
     }
 }
 
@@ -28,26 +28,13 @@ pub enum TextCallbackEvent {
 
 #[derive(Debug, Clone)]
 pub struct PackInfoState {
-    pub is_default: bool,
-
-    description_panes: Option<pane_grid::State<ListPaneState>>,
-    description_focus: Option<pane_grid::Pane>,
+    pub is_default: bool
 }
 
 impl PackInfoState {
     pub fn new(datapack: &Datapack) -> Self {
-        let count = datapack.description().len();
-
-        let state = widgets::list_pane_state(count)
-            .map(|config| pane_grid::State::with_configuration(config));
-
-        dbg!(&state);
-
         Self {
-            is_default: true,
-
-            description_panes: state,
-            description_focus: None
+            is_default: true
         }
     }
 }
@@ -65,11 +52,14 @@ pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCa
 
 pub fn get_datapack_gui<'a>(datapack: &Datapack) -> Element<'a, Message> {
     let name = widgets::text_editor("Name", "Name", &datapack.name(), |s| WidgetCallbackChannel::PackInfo(DatapackName(s)));
+    let description = widgets::list("Description", datapack.description(),
+        |text| get_text_gui(text),
+        |description| WidgetCallbackChannel::PackInfo(Description {index: 0}));
 
-    name.into()
+    Column::new().push(name).push(description).into()
 }
 
 fn get_text_gui<'a>(text: &util::Text) -> Element<'a, Message> {
-    //let text_gui = widgets::text_editor("Text", "Text", &text.text, |s| WidgetCallbackChannel::PackInfo(DatapackName(s))).into()
-    todo!()
+    let text_gui = widgets::text_editor("Text", "Text", &text.text, |s| WidgetCallbackChannel::PackInfo(DatapackName(s))).into();
+    text_gui
 }

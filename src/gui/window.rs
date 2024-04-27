@@ -106,7 +106,7 @@ impl Application for ApplicationWindow {
                     // TODO rewrite for actual datapack switching
                     let is_default = pack_info_state.is_default;
                     let mut new_state = PackInfoState::new(&self.terralith);
-                    new_state.is_default = is_default;
+                    new_state.is_default = !is_default;
                     self.state = PackInfo(new_state);
                 }
             }
