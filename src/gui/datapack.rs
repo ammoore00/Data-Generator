@@ -1,4 +1,4 @@
-use iced::Element;
+use iced::{Element, widget};
 use iced::widget::{Column, container, Row};
 use crate::data::datapack::Datapack;
 use crate::data::util;
@@ -39,7 +39,7 @@ pub struct PackInfoState {
 impl PackInfoState {
     pub fn new(datapack: &Datapack) -> Self {
         Self {
-            is_default: true,
+            is_default: false,
             description_state: DescriptionState::new(datapack.description().len()),
         }
     }
@@ -115,7 +115,9 @@ pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCa
 pub fn get_pack_info_gui<'a>(datapack: &Datapack, pack_info_state: &PackInfoState) -> Element<'a, Message> {
     let name = widgets::text_editor("Name", "Name", &datapack.name(),
         |s| WidgetCallbackChannel::PackInfo(DatapackCallbackType::DatapackName(s)));
-    let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state, get_text_gui,
+    let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state,
+        |text| widget::text(&text.text).into(),
+        get_text_gui,
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(list_event)));
 
     Column::new()

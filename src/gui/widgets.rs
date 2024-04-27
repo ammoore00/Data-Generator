@@ -50,15 +50,19 @@ pub enum MoveDirection {
 pub fn text_editor<'a, F>(
     label: &str,
     default: &str,
-    reference: &str,
+    state: &str,
     callback_channel: F
 ) -> Row<'a, Message, <ApplicationWindow as Application>::Theme>
 where F: Fn(String) -> WidgetCallbackChannel + 'a {
+    println!("{:?}", &state);
+    let state = state.replace("\n", "\\n");
+    println!("{:?}", &state);
+
     Row::new()
         .push(widget::text(format!("{label}:")))
-        .push(widget::text_input(default, reference)
+        .push(widget::text_input(default, &*state)
             .on_input(move |text| {
-                Message::Input(callback_channel(text))
+                Message::Input(callback_channel(text.replace("\\n", "\n")))
             }))
         .align_items(Alignment::Center)
         .spacing(SPACING_LARGE)
@@ -149,17 +153,19 @@ where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
 
 //------------//
 
-pub fn list<'a, DataType, EditEventType, State, WidgetCreator, MessageCallback>(
+pub fn list<'a, T, EditEventType, State, CollapseDisplay, WidgetCreator, MessageCallback>(
     label: &str,
-    data: &Vec<DataType>,
+    data: &Vec<T>,
     state: &State,
+    collapse_display: CollapseDisplay,
     widget_creator: WidgetCreator,
     callback_channel: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
-    DataType: Default,
+    T: Default,
     State: ListState,
-    WidgetCreator: Fn(&DataType, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
+    CollapseDisplay: Fn(&T) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
+    WidgetCreator: Fn(&T, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
     let button_size = 24.;
@@ -183,6 +189,7 @@ where
 
     for i in 0..data.len() {
         let item = &data[i];
+        let collapsed = state.is_node_collapsed(i);
 
         let add_button = widget::button(
                 widget::text("+")
@@ -237,24 +244,28 @@ where
             .push(up_button)
             .push(down_button);
 
-        let controls = Row::new()
+        let mut controls = Row::new()
             .push(add_remove_buttons)
             .push(move_buttons)
             .align_items(Alignment::Center)
             .spacing(SPACING_SMALL);
 
+        if collapsed {
+            controls = controls.push(collapse_display(item));
+        }
+
         let mut entry = Column::new()
             .push(controls)
             .spacing(SPACING_SMALL);
 
-        if !state.is_node_collapsed(i) {
+        if !collapsed {
             let widget = widget_creator(item, i);
             entry = entry.push(widget);
         }
 
         entry = entry.push(Rule::horizontal(4.));
 
-        let collapse_text = if state.is_node_collapsed(i) { ">" } else { "v" };
+        let collapse_text = if collapsed { ">" } else { "v" };
 
         let collapse_button = widget::button(
             widget::text(collapse_text)
@@ -344,10 +355,7 @@ where
                 }
             }
         },
-        Collapse(index, is_collapsed) => {
-            dbg!(is_collapsed);
-            state.set_collapsed(index, is_collapsed);
-        },
+        Collapse(index, is_collapsed) => state.set_collapsed(index, is_collapsed),
         Edit(item, index) => edit_callback(data, item, index)
     }
 }
