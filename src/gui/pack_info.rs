@@ -1,6 +1,5 @@
 use iced::{Application, Element, widget};
 use iced::widget::{Column, container};
-use iced::widget::pick_list::overlay;
 use crate::data::datapack::{Datapack, Overlay};
 use crate::data::util;
 use crate::gui::widgets::{self, ListEvent, ListInlineState, ListSettings, ListState, WidgetCallbackChannel};
@@ -120,9 +119,10 @@ pub fn get_pack_info_gui<'a>(
     let overlays = widgets::list("Overlays", datapack.overlays(), &pack_info_state.overlay_state,
         ListSettings {
             required: false,
-            inline_state: ListInlineState::Inline
+            inline_state: ListInlineState::Extended(Box::new(|overlay, collapsed| {
+                if collapsed { Some(widget::text(&overlay.name).into()) } else { None }
+            }))
         },
-        //|overlay, collapsed| if collapsed { Some(widget::text(&overlay.name).into()) } else { None },
         get_overlay_gui,
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Overlay(list_event)));
 

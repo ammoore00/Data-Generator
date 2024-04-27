@@ -19,34 +19,6 @@ pub enum WidgetCallbackChannel {
 
 //------------//
 
-#[derive(Debug, Clone)]
-pub enum ListEvent<T> {
-    Add(AddLocation),
-    Remove(usize),
-    Move(MoveDirection, usize),
-    Collapse(usize, bool),
-    Edit(T, usize)
-}
-
-//------------//
-
-#[derive(Debug, Clone)]
-pub enum AddLocation {
-    Top,
-    Bottom,
-    Middle(usize)
-}
-
-//------------//
-
-#[derive(Debug, Clone)]
-pub enum MoveDirection {
-    Up,
-    Down
-}
-
-//------------//
-
 pub fn text_editor<'a, F>(
     label: &str,
     default: &str,
@@ -171,16 +143,12 @@ where
 
     let name = widget::text(label);
     let add_top = widget::button(" + ")
-        .on_press(Message::Input(callback_channel(ListEvent::Add(AddLocation::Top))))
+        .on_press(Message::Input(callback_channel(ListEvent::Add(0))))
         .style(theme::Button::Positive);
     let mut header = Row::new()
-        .push(name)
+        .push(name).push(add_top)
         .align_items(Alignment::Center)
         .spacing(SPACING_LARGE);
-
-    if data.len() == 0 {
-        header = header.push(add_top)
-    }
 
     let mut content = Column::new()
         .spacing(SPACING_SMALL);
@@ -193,7 +161,7 @@ where
                 widget::text("+")
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))
-            .on_press(Message::Input(callback_channel(ListEvent::Add(AddLocation::Middle(i)))))
+            .on_press(Message::Input(callback_channel(ListEvent::Add(i + 1))))
             .style(theme::Button::Positive)
             .height(Length::Fixed(button_size))
             .width(Length::Fixed(button_size))
@@ -302,25 +270,6 @@ where
         content = content.push(entry);
     }
 
-    if data.len() > 0 {
-        let add_button = widget::button(
-            widget::text("+")
-                .horizontal_alignment(Horizontal::Center)
-                .vertical_alignment(Vertical::Center))
-            .on_press(Message::Input(callback_channel(ListEvent::Add(AddLocation::Bottom))))
-            .style(theme::Button::Positive)
-            .height(Length::Fixed(button_size))
-            .width(Length::Fixed(button_size))
-            .padding(0);
-
-        let add_row = Row::new()
-            .push(widget::text("")
-                .width(Length::Fixed(button_size + 2. * sidebar_padding as f32)))
-            .push(add_button);
-
-        content = content.push(add_row);
-    }
-
     widget::container(
         Column::new()
             .push(header)
@@ -341,22 +290,9 @@ where
 {
     use ListEvent::*;
     match list_event {
-        Add(location) => {
-            use AddLocation::*;
-            match location {
-                Top => {
-                    data.insert(0, T::default());
-                    state.add(0);
-                },
-                Bottom => {
-                    data.push(T::default());
-                    state.add(data.len() - 1);
-                },
-                Middle(index) => {
-                    data.insert(index, T::default());
-                    state.add(index);
-                },
-            }
+        Add(index) => {
+            data.insert(index, T::default());
+            state.add(index);
         }
         Remove(index) => {
             data.remove(index);
@@ -377,6 +313,8 @@ where
         Edit(item, index) => edit_callback(data, item, index)
     }
 }
+
+//------------//
 
 #[derive(Debug, Clone)]
 pub struct ListState {
@@ -409,6 +347,8 @@ impl ListState {
     }
 }
 
+//------------//
+
 pub struct ListSettings<'a, T>
 where T: Default {
     pub required: bool,
@@ -425,8 +365,29 @@ where T: Default {
     }
 }
 
+//------------//
+
 pub enum ListInlineState<'a, T>
 where T: Default {
     Inline,
     Extended(Box<dyn Fn(&T, bool) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>>>)
+}
+
+//------------//
+
+#[derive(Debug, Clone)]
+pub enum ListEvent<T> {
+    Add(usize),
+    Remove(usize),
+    Move(MoveDirection, usize),
+    Collapse(usize, bool),
+    Edit(T, usize)
+}
+
+//------------//
+
+#[derive(Debug, Clone)]
+enum MoveDirection {
+    Up,
+    Down
 }
