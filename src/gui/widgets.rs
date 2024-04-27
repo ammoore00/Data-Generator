@@ -125,17 +125,18 @@ where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
 
 //------------//
 
-pub fn list<'a, T, EditEventType, WidgetCreator, MessageCallback>(
+pub fn list<'a, T, EditEventType, InlineWidgetCreator, MessageCallback, State>(
     label: &str,
     data: &Vec<T>,
-    state: &ListState,
+    list_state: &ListState,
+    content_state: &State,
     settings: ListSettings<'a, T>,
-    widget_creator: WidgetCreator,
+    inline_widget_creator: InlineWidgetCreator,
     callback_channel: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
     T: Default,
-    WidgetCreator: Fn(&T, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
+    InlineWidgetCreator: Fn(&T, usize, bool, &State) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
     let button_size = 24.;
@@ -155,7 +156,7 @@ where
 
     for i in 0..data.len() {
         let item = &data[i];
-        let collapsed = state.is_node_collapsed(i);
+        let collapsed = list_state.is_node_collapsed(i);
 
         let add_button = widget::button(
                 widget::text("+")
@@ -219,21 +220,23 @@ where
             .align_items(Alignment::Center)
             .spacing(SPACING_SMALL);
 
-        let widget = widget_creator(item, i);
+        let inline_widget = inline_widget_creator(item, i, collapsed, content_state);
 
-        let entry = if let ListInlineState::Extended(collapsed_preview) = &settings.inline_state {
-            if let Some(element) = collapsed_preview(item, collapsed) {
-                controls = controls.push(element);
+        let entry = if let ListInlineState::Extended(extended_widget) = &settings.inline_state {
+            if let Some(inline_widget) = inline_widget {
+                controls = controls.push(inline_widget);
             }
 
             let mut entry = Column::new().push(controls);
             if !collapsed {
-                entry = entry.push(widget);
+                entry = entry.push(extended_widget(item, i));
             }
             entry
         }
         else {
-            controls = controls.push(widget);
+            if let Some(inline_widget) = inline_widget {
+                controls = controls.push(inline_widget);
+            }
             Column::new()
                 .push(controls)
         }
@@ -253,7 +256,7 @@ where
                 widget::text(collapse_text)
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))
-                .on_press(Message::Input(callback_channel(ListEvent::Collapse(i, !state.is_node_collapsed(i)))))
+                .on_press(Message::Input(callback_channel(ListEvent::Collapse(i, !list_state.is_node_collapsed(i)))))
                 .style(theme::Button::Secondary)
                 .height(Length::Fixed(button_size))
                 .width(Length::Fixed(button_size))
@@ -370,7 +373,7 @@ where T: Default {
 pub enum ListInlineState<'a, T>
 where T: Default {
     Inline,
-    Extended(Box<dyn Fn(&T, bool) -> Option<Element<'a, Message, <ApplicationWindow as Application>::Theme>>>)
+    Extended(Box<dyn Fn(&T, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>>)
 }
 
 //------------//
