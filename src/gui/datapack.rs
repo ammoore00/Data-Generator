@@ -2,7 +2,7 @@ use iced::Element;
 use iced::widget::{Column, container, Row};
 use crate::data::datapack::Datapack;
 use crate::data::util;
-use crate::gui::widgets::{self, ListEvent, WidgetCallbackChannel};
+use crate::gui::widgets::{self, ListEvent, ListState, WidgetCallbackChannel};
 use crate::gui::window::Message;
 
 ///////////////////////////////
@@ -32,14 +32,51 @@ enum TextEditEvent {
 
 #[derive(Debug, Clone)]
 pub struct PackInfoState {
-    pub is_default: bool
+    pub is_default: bool,
+    pub description_state: DescriptionState,
 }
 
 impl PackInfoState {
     pub fn new(datapack: &Datapack) -> Self {
         Self {
-            is_default: true
+            is_default: true,
+            description_state: DescriptionState::new(datapack.description().len()),
         }
+    }
+}
+
+//------------//
+
+#[derive(Debug, Clone)]
+pub struct DescriptionState {
+    collapsed: Vec<bool>
+}
+
+impl DescriptionState {
+    fn new(count: usize) -> Self {
+        Self {
+            collapsed: vec![false; count]
+        }
+    }
+}
+
+impl ListState for DescriptionState {
+    fn is_node_collapsed(&self, index: usize) -> bool {
+        *self.collapsed.get(index).unwrap_or(&false)
+    }
+
+    fn set_collapsed(&mut self, index: usize, collapsed: bool) {
+        if let Some(mut val) = self.collapsed.get_mut(index) {
+            *val = collapsed;
+        }
+    }
+
+    fn add(&mut self, index: usize) {
+        self.collapsed.insert(index, false);
+    }
+
+    fn remove(&mut self, index: usize) {
+        self.collapsed.remove(index);
     }
 }
 
@@ -47,11 +84,11 @@ impl PackInfoState {
 //------ Message Processing ------//
 ////////////////////////////////////
 
-pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCallbackType) {
+pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCallbackType, mut pack_info_state: PackInfoState) -> PackInfoState {
     use DatapackCallbackType::*;
     match callback_type {
         DatapackName(name) => datapack.set_name(&*name),
-        Description(list_event) => widgets::handle_list_event(list_event, datapack.description_mut(),
+        Description(list_event) => widgets::handle_list_event(list_event, datapack.description_mut(), &mut pack_info_state.description_state,
             |data, edit_event, index| {
                 let mut item = data.get_mut(index).expect("List edit event should not return values out of range");
 
@@ -68,16 +105,17 @@ pub fn handle_datapack_update(datapack: &mut Datapack, callback_type: DatapackCa
                 }
             }),
     }
+    pack_info_state
 }
 
 ////////////////////////////////
 //------ GUI generation ------//
 ////////////////////////////////
 
-pub fn get_pack_info_gui<'a>(datapack: &Datapack) -> Element<'a, Message> {
+pub fn get_pack_info_gui<'a>(datapack: &Datapack, pack_info_state: &PackInfoState) -> Element<'a, Message> {
     let name = widgets::text_editor("Name", "Name", &datapack.name(),
         |s| WidgetCallbackChannel::PackInfo(DatapackCallbackType::DatapackName(s)));
-    let description = widgets::list("Description", datapack.description(), get_text_gui,
+    let description = widgets::list("Description", datapack.description(), &pack_info_state.description_state, get_text_gui,
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(list_event)));
 
     Column::new()

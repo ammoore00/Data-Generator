@@ -24,6 +24,7 @@ pub enum ListEvent<T> {
     Add(AddLocation),
     Remove(usize),
     Move(MoveDirection, usize),
+    Collapse(usize, bool),
     Edit(T, usize)
 }
 
@@ -62,6 +63,8 @@ where F: Fn(String) -> WidgetCallbackChannel + 'a {
         .align_items(Alignment::Center)
         .spacing(SPACING_LARGE)
 }
+
+//------------//
 
 pub fn boolean_toggle<'a, F>(
     label: &str,
@@ -144,14 +147,18 @@ where F: Fn(Option<bool>) -> WidgetCallbackChannel + 'a {
         .align_items(Alignment::Center)
 }
 
-pub fn list<'a, DataType, EditEventType, WidgetCreator, MessageCallback>(
+//------------//
+
+pub fn list<'a, DataType, EditEventType, State, WidgetCreator, MessageCallback>(
     label: &str,
-    state: &Vec<DataType>,
+    data: &Vec<DataType>,
+    state: &State,
     widget_creator: WidgetCreator,
     callback_channel: MessageCallback
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>
 where
     DataType: Default,
+    State: ListState,
     WidgetCreator: Fn(&DataType, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
@@ -167,17 +174,15 @@ where
         .align_items(Alignment::Center)
         .spacing(SPACING_LARGE);
 
-    if state.len() == 0 {
+    if data.len() == 0 {
         header = header.push(add_top)
     }
 
     let mut content = Column::new()
         .spacing(SPACING_SMALL);
 
-    for i in 0..state.len() {
-        let item = &state[i];
-
-        let widget = widget_creator(item, i);
+    for i in 0..data.len() {
+        let item = &data[i];
 
         let add_button = widget::button(
                 widget::text("+")
@@ -224,7 +229,7 @@ where
         if i > 0 {
             up_button = up_button.on_press(Message::Input(callback_channel(ListEvent::Move(MoveDirection::Up, i))))
         }
-        if i < state.len() - 1 {
+        if i < data.len() - 1 {
             down_button = down_button.on_press(Message::Input(callback_channel(ListEvent::Move(MoveDirection::Down, i))))
         }
 
@@ -239,17 +244,23 @@ where
             .spacing(SPACING_SMALL);
 
         let mut entry = Column::new()
+            .push(controls)
             .spacing(SPACING_SMALL);
 
-        entry = entry
-            .push(controls)
-            .push(widget)
-            .push(Rule::horizontal(4.));
+        if !state.is_node_collapsed(i) {
+            let widget = widget_creator(item, i);
+            entry = entry.push(widget);
+        }
+
+        entry = entry.push(Rule::horizontal(4.));
+
+        let collapse_text = if state.is_node_collapsed(i) { ">" } else { "v" };
 
         let collapse_button = widget::button(
-            widget::text(">")
+            widget::text(collapse_text)
                 .horizontal_alignment(Horizontal::Center)
                 .vertical_alignment(Vertical::Center))
+            .on_press(Message::Input(callback_channel(ListEvent::Collapse(i, !state.is_node_collapsed(i)))))
             .style(theme::Button::Secondary)
             .height(Length::Fixed(button_size))
             .width(Length::Fixed(button_size))
@@ -265,7 +276,7 @@ where
         content = content.push(entry);
     }
 
-    if state.len() > 0 {
+    if data.len() > 0 {
         let add_button = widget::button(
             widget::text("+")
                 .horizontal_alignment(Horizontal::Center)
@@ -292,22 +303,33 @@ where
         ).into()
 }
 
-pub fn handle_list_event<E, T, F>(
-    list_event: ListEvent<E>,
+pub fn handle_list_event<Event, T, State, FEdit>(
+    list_event: ListEvent<Event>,
     data: &mut Vec<T>,
-    mut edit_callback: F)
+    state: &mut State,
+    mut edit_callback: FEdit)
 where
     T: Default,
-    F: FnMut(&mut Vec<T>, E, usize)
+    State: ListState,
+    FEdit: FnMut(&mut Vec<T>, Event, usize)
 {
     use ListEvent::*;
     match list_event {
         Add(location) => {
             use AddLocation::*;
             match location {
-                Top => data.insert(0, T::default()),
-                Bottom => data.push(T::default()),
-                Middle(index) => data.insert(index, T::default()),
+                Top => {
+                    data.insert(0, T::default());
+                    state.add(0);
+                },
+                Bottom => {
+                    data.push(T::default());
+                    state.add(data.len() - 1);
+                },
+                Middle(index) => {
+                    data.insert(index, T::default());
+                    state.add(index);
+                },
             }
         }
         Remove(index) => { data.remove(index); },
@@ -322,6 +344,17 @@ where
                 }
             }
         },
+        Collapse(index, is_collapsed) => {
+            dbg!(is_collapsed);
+            state.set_collapsed(index, is_collapsed);
+        },
         Edit(item, index) => edit_callback(data, item, index)
     }
+}
+
+pub trait ListState {
+    fn is_node_collapsed(&self, index: usize) -> bool;
+    fn set_collapsed(&mut self, index: usize, collapsed: bool);
+    fn add(&mut self, index: usize);
+    fn remove(&mut self, index: usize);
 }

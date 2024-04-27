@@ -2,10 +2,10 @@ use std::fmt::Debug;
 use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
 use iced::theme::Button;
-use iced::widget::{self, Container, Row, Column, PaneGrid};
+use iced::widget::{self, Container, Row, Column, PaneGrid, Rule};
 use iced::widget::pane_grid::{self, Axis, TitleBar};
 use crate::data::datapack::{Datapack, SerializableDatapack};
-use crate::gui::datapack;
+use crate::gui::{datapack, widgets};
 use crate::gui::datapack::PackInfoState;
 use crate::gui::widgets::WidgetCallbackChannel;
 
@@ -113,8 +113,13 @@ impl Application for ApplicationWindow {
             Input(callback_channel) => {
                 match callback_channel {
                     WidgetCallbackChannel::PackInfo(callback_type) => {
-                        let datapack = self.get_active_datapack_mut();
-                        datapack::handle_datapack_update(datapack, callback_type);
+                        if let PackInfo(pack_info_state) = self.state.clone() {
+                            let datapack = self.get_active_datapack_mut();
+                            self.state = PackInfo(datapack::handle_datapack_update(datapack, callback_type, pack_info_state));
+                        }
+                        else {
+                            panic!("Illegal state - pack info callback requested while not in pack info state!")
+                        }
                     }
                 }
             }
@@ -241,10 +246,14 @@ impl<'a> ApplicationWindow {
 
     fn get_content_view(&'a self) -> Container<'a, <ApplicationWindow as Application>::Message> {
         let datapack = self.get_active_datapack();
+        let pack_info_state = if let MainContentState::PackInfo(pack_info_state) = &self.state {
+            pack_info_state
+        }
+        else {panic!("Main content hardcoded for pack info")};
 
         widget::container(
             Column::new()
-                .push(datapack::get_pack_info_gui(datapack))
+                .push(datapack::get_pack_info_gui(datapack, pack_info_state))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
@@ -260,6 +269,8 @@ impl<'a> ApplicationWindow {
 
         widget::container(
             Column::new()
+                .push(widget::text(format!("{:?}", self.state)))
+                .push(Rule::horizontal(widgets::STANDARD_RULE_WIDTH))
                 .push(widget::text(format!("{:#?}", datapack)))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
