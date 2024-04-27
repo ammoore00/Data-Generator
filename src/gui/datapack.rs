@@ -83,6 +83,7 @@ pub fn get_pack_info_gui<'a>(datapack: &Datapack) -> Element<'a, Message> {
     Column::new()
         .push(name)
         .push(description)
+        .spacing(widgets::SPACING_SMALL)
         .into()
 }
 
@@ -96,21 +97,23 @@ fn get_text_gui<'a>(text: &util::Text, index: usize) -> Element<'a, Message> {
             )
         });
 
-    let bold = widgets::boolean_toggle("Bold", text.is_bold,
+    let bold = widgets::boolean_toggle_optional("Bold", text.is_bold,
         move |is_bold| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
                 ListEvent::Edit(TextEditEvent::Bold(is_bold), index))));
-    let italic = widgets::boolean_toggle("Italic", text.is_italic,
+    let italic = widgets::boolean_toggle_optional("Italic", text.is_italic,
         move |is_italic| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
             ListEvent::Edit(TextEditEvent::Italic(is_italic), index))));
-    let underlined = widgets::boolean_toggle("Underlined", text.is_underlined,
+    let underlined = widgets::boolean_toggle_optional("Underlined", text.is_underlined,
         move |is_underlined| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
             ListEvent::Edit(TextEditEvent::Underlined(is_underlined), index))));
-    let strikethrough = widgets::boolean_toggle("Strikethrough", text.is_strikethrough,
+    let strikethrough = widgets::boolean_toggle_optional("Strikethrough", text.is_strikethrough,
         move |is_strikethrough| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
             ListEvent::Edit(TextEditEvent::Strikethrough(is_strikethrough), index))));
-    let obfuscated = widgets::boolean_toggle("Obfuscated", text.is_obfuscated,
+    let obfuscated = widgets::boolean_toggle_optional("Obfuscated", text.is_obfuscated,
         move |is_obfuscated| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(
             ListEvent::Edit(TextEditEvent::Obfuscated(is_obfuscated), index))));
+
+    // TODO: color and font
 
     container(Column::new()
         .push(text_editor)

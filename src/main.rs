@@ -5,6 +5,9 @@ mod data;
 mod gui;
 
 fn main() -> iced::Result {
-    ApplicationWindow::run(Settings::default())
+    let mut settings = Settings::default();
+    settings.default_text_size = 14.into();
+
+    ApplicationWindow::run(settings)
     //Ok(())
 }
