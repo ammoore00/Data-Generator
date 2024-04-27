@@ -155,6 +155,9 @@ where
     WidgetCreator: Fn(&DataType, usize) -> Element<'a, Message, <ApplicationWindow as Application>::Theme>,
     MessageCallback: Fn(ListEvent<EditEventType>) -> WidgetCallbackChannel + 'a,
 {
+    let button_size = 24.;
+    let sidebar_padding = 4;
+
     let name = widget::text(label);
     let add_top = widget::button(" + ")
         .on_press(Message::Input(callback_channel(ListEvent::Add(AddLocation::Top))))
@@ -175,8 +178,6 @@ where
         let item = &state[i];
 
         let widget = widget_creator(item, i);
-
-        let button_size = 24.;
 
         let add_button = widget::button(
                 widget::text("+")
@@ -254,40 +255,41 @@ where
             .width(Length::Fixed(button_size))
             .padding(0);
 
-        let sidebar = Column::new()
-            .push(collapse_button)
-            .push(Rule::vertical(STANDARD_RULE_WIDTH))
-            .align_items(Alignment::Center);
+        let collapse_button = widget::container(collapse_button)
+            .padding(sidebar_padding);
 
         let entry = Row::new()
-            .push(sidebar)
+            .push(collapse_button)
             .push(entry);
 
         content = content.push(entry);
     }
 
     if state.len() > 0 {
-        content = content.push(widget::button(" + ")
+        let add_button = widget::button(
+            widget::text("+")
+                .horizontal_alignment(Horizontal::Center)
+                .vertical_alignment(Vertical::Center))
             .on_press(Message::Input(callback_channel(ListEvent::Add(AddLocation::Bottom))))
-            .style(theme::Button::Positive));
-    }
+            .style(theme::Button::Positive)
+            .height(Length::Fixed(button_size))
+            .width(Length::Fixed(button_size))
+            .padding(0);
 
-    /*
-    let content = Row::new()
-        .push(widget::container(Rule::vertical(STANDARD_RULE_WIDTH))
-            .center_x()
-            .width(Length::Fixed(25.)))
-            .height(Length::Fill)
-        .push(content);
-     */
+        let add_row = Row::new()
+            .push(widget::text("")
+                .width(Length::Fixed(button_size + 2. * sidebar_padding as f32)))
+            .push(add_button);
+
+        content = content.push(add_row);
+    }
 
     widget::container(
         Column::new()
             .push(header)
             .push(content)
             .spacing(SPACING_SMALL)
-        )
-        .into()
+        ).into()
 }
 
 pub fn handle_list_event<E, T, F>(
