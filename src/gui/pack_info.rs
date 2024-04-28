@@ -74,7 +74,7 @@ pub fn handle_datapack_update(
             use FormatEvent::*;
             match format_event {
                 Type(event) => widgets::handle_dropdown_event(event, &mut pack_info_state.format_state.format_type),
-                Edit(index, event) => {
+                Format(index, event) => {
                     let state = match index {
                         0 => &mut pack_info_state.format_state.root,
                         1 => &mut pack_info_state.format_state.min,
@@ -310,11 +310,11 @@ fn format_selector<'a>(
     let format_type = widgets::dropdown(None, &pack_info_state.format_state.format_type,
         |event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Format(FormatEvent::Type(event))));
     let root_format = widgets::dropdown(Some("Root Version: "), &pack_info_state.format_state.root,
-        |event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Format(FormatEvent::Edit(0, event))));
-    let min_format = widgets::dropdown(Some("Minimum Version: "), &pack_info_state.format_state.root,
-        |event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Format(FormatEvent::Edit(1, event))));
-    let max_format = widgets::dropdown(Some("Maximum Version: "), &pack_info_state.format_state.root,
-        |event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Format(FormatEvent::Edit(2, event))));
+        |event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Format(FormatEvent::Format(0, event))));
+    let min_format = widgets::dropdown(Some("Minimum Version: "), &pack_info_state.format_state.min,
+        |event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Format(FormatEvent::Format(1, event))));
+    let max_format = widgets::dropdown(Some("Maximum Version: "), &pack_info_state.format_state.max,
+        |event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Format(FormatEvent::Format(2, event))));
 
     let mut widget = Row::new()
         .push(label)
@@ -369,7 +369,7 @@ impl<'a> DropdownOption<'a> for DatapackFormat {
 #[derive(Clone, Debug)]
 enum FormatEvent {
     Type(DropdownEvent<FormatType>),
-    Edit(usize, DropdownEvent<DatapackFormat>)
+    Format(usize, DropdownEvent<DatapackFormat>)
 }
 
 //------------//

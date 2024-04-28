@@ -162,6 +162,7 @@ where
         Row::new()
             .push(widget::text(label))
             .push(dropdown)
+            .align_items(Alignment::Center)
             .spacing(SPACING_SMALL)
             .into()
     }
