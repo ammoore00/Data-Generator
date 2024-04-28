@@ -235,12 +235,12 @@ impl<'a> ApplicationWindow {
 
         widget::container(
             Column::new()
-                .push(pack_info::get_pack_info_gui(datapack, pack_info_state))
+                .push(pack_info::pack_info_gui(datapack, pack_info_state))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
                 .height(Length::Fill))
-            .style(iced::theme::Container::Box)
+            //.style(iced::theme::Container::Box)
             .width(Length::FillPortion(4))
             .height(Length::Fill)
             .padding(5)
@@ -251,7 +251,7 @@ impl<'a> ApplicationWindow {
 
         widget::container(
             Column::new()
-                .push(widget::text(format!("{:?}", self.state)))
+                .push(widget::text(format!("{:#?}", self.state)))
                 .push(Rule::horizontal(widgets::STANDARD_RULE_WIDTH))
                 .push(widget::text(format!("{:#?}", datapack)))
                 .align_items(iced::Alignment::Start)

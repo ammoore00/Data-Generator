@@ -172,6 +172,24 @@ where
 
 //------------//
 
+pub fn handle_dropdown_event<T>(
+    dropdown_event: DropdownEvent<T>,
+    state: &mut DropdownState<T>
+)
+where T: for<'a> DropdownOption<'a> {
+    use DropdownEvent::*;
+    match dropdown_event {
+        Select(t) => {
+            state.selected = t;
+            state.expanded = false;
+        }
+        Dismiss => state.expanded = false,
+        Expand => state.expanded = !state.expanded,
+    }
+}
+
+//------------//
+
 pub trait DropdownOption<'a>: Display + Copy {
     fn variants() -> &'a[Self] where Self: Sized;
 }
@@ -188,11 +206,21 @@ where T: for<'a> DropdownOption<'a> {
 
 //------------//
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct DropdownState<T>
 where T: for<'a> DropdownOption<'a> {
     pub(crate) selected: T,
     pub(crate) expanded: bool,
+}
+
+impl<T> DropdownState<T>
+where T: for<'a> DropdownOption<'a> {
+    pub fn new(t: T) -> Self {
+        Self {
+            selected: t,
+            expanded: false
+        }
+    }
 }
 
 ///////////////////////
@@ -220,7 +248,7 @@ where
     let add_top = widget::button(" + ")
         .on_press(Message::Input(message_callback(ListEvent::Add(0))))
         .style(theme::Button::Positive);
-    let mut header = Row::new()
+    let header = Row::new()
         .push(name).push(add_top)
         .align_items(Alignment::Center)
         .spacing(SPACING_LARGE);
@@ -361,14 +389,12 @@ where
         ).into()
 }
 
-pub fn handle_list_event<Event, T, FEdit>(
+pub fn handle_list_event<T, Event>(
     list_event: ListEvent<Event>,
     data: &mut Vec<T>,
-    state: &mut ListState,
-    mut edit_callback: FEdit)
+    state: &mut ListState) -> ListEvent<Event>
 where
-    T: Default,
-    FEdit: FnMut(&mut Vec<T>, Event, usize)
+    T: Default
 {
     use ListEvent::*;
     match list_event {
@@ -380,20 +406,24 @@ where
             data.remove(index);
             state.remove(index);
         },
-        Move(direction, index) => {
+        Move(ref direction, index) => {
             use MoveDirection::*;
             match direction {
                 Up => if index > 0 {
-                    data.swap(index, index - 1)
+                    data.swap(index, index - 1);
+                    state.swap(index, index - 1);
                 },
                 Down => if index < data.len() - 1 {
-                    data.swap(index, index + 1)
+                    data.swap(index, index + 1);
+                    state.swap(index, index + 1);
                 }
             }
         },
         Collapse(index, is_collapsed) => state.set_collapsed(index, is_collapsed),
-        Edit(item, index) => edit_callback(data, item, index)
+        _ => {}
     }
+
+    list_event
 }
 
 //------------//
@@ -408,6 +438,10 @@ impl ListState {
         Self {
             collapsed: vec![false; count]
         }
+    }
+
+    pub fn swap(&mut self, i: usize, j: usize) {
+        self.collapsed.swap(i, j);
     }
 
     fn is_node_collapsed(&self, index: usize) -> bool {
@@ -469,7 +503,7 @@ pub enum ListEvent<T> {
 //------------//
 
 #[derive(Debug, Clone)]
-enum MoveDirection {
+pub enum MoveDirection {
     Up,
     Down
 }

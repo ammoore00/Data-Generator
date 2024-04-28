@@ -1,7 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Formatter, write};
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -13,7 +13,7 @@ use strum_macros::{Display, FromRepr};
 use zip::read::ZipFile;
 use zip::result::ZipError;
 use zip::ZipArchive;
-use crate::data::datapack::DatapackFormat::{Format18, Format41};
+use crate::data::datapack::DatapackFormat::*;
 use crate::data::biome::SerializableBiomeData;
 use crate::data::util;
 use crate::data::util::{ColorParseError, ResourceLocation, SerializableText};
@@ -22,7 +22,7 @@ use crate::data::util::{ColorParseError, ResourceLocation, SerializableText};
 //------ Datapack Formats ------//
 //////////////////////////////////
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize_repr, Deserialize_repr, FromRepr)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Serialize_repr, Deserialize_repr, FromRepr)]
 #[repr(u8)]
 pub enum DatapackFormat {
     Format6 = 6,
@@ -34,6 +34,7 @@ pub enum DatapackFormat {
     Format15 = 15,
     Format18 = 18,
     Format26 = 26,
+    #[default]
     Format41 = 41
 }
 
@@ -61,11 +62,35 @@ impl DatapackFormat {
     pub fn get_minimum_overlay_version() -> Self {
         Format18
     }
+}
 
-    pub fn get_latest() -> Self {
-        Format41
+impl Display for DatapackFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let version_range = self.get_version_range();
+        let min = version_range[0];
+        let max = version_range[1];
+
+        if min == max {
+            write!(f, "1.{}.{}", min.0, min.1)
+        }
+        else {
+            write!(f, "1.{}.{}-1.{}.{}", min.0, min.1, max.0, max.1)
+        }
     }
 }
+
+pub const DATAPACK_FORMATS: [DatapackFormat; 10] = [
+    Format6,
+    Format7,
+    Format8,
+    Format9,
+    Format10,
+    Format12,
+    Format15,
+    Format18,
+    Format26,
+    Format41,
+];
 
 ///////////////////////////////////
 //------ Datapack Handling ------//
@@ -391,6 +416,13 @@ impl Datapack {
 
     pub fn overlays(&self) -> &Vec<Overlay> { &self.overlays }
     pub fn overlays_mut(&mut self) -> &mut Vec<Overlay> { &mut self.overlays }
+
+    pub fn root_format(&self) -> DatapackFormat { self.root_format }
+    pub fn min_format(&self) -> DatapackFormat { self.min_format }
+    pub fn max_format(&self) -> DatapackFormat { self.max_format }
+    pub fn set_root_format(&mut self, datapack_format: DatapackFormat) { self.root_format = datapack_format }
+    pub fn set_min_format(&mut self, datapack_format: DatapackFormat) { self.min_format = datapack_format }
+    pub fn set_max_format(&mut self, datapack_format: DatapackFormat) { self.max_format = datapack_format }
 }
 
 impl TryFrom<SerializableDatapack> for Datapack {
@@ -475,7 +507,7 @@ pub enum DataValue {
 
 //------------//
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Overlay {
     pub name: String,
     pub min_format: DatapackFormat,
@@ -516,12 +548,6 @@ impl Overlay {
             min_format,
             max_format
         })
-    }
-}
-
-impl Default for Overlay {
-    fn default() -> Self {
-        Self::from_single_format(String::from(""), DatapackFormat::get_latest()).unwrap()
     }
 }
 
