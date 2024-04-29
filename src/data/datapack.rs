@@ -97,7 +97,7 @@ pub const DATAPACK_FORMATS: [DatapackFormat; 10] = [
 ///////////////////////////////////
 
 lazy_static! {
-    static ref DATAPACK_NAME_REG: Regex = Regex::new(r"/(.+).zip").unwrap();
+    static ref DATAPACK_NAME_REG: Regex = Regex::new(r"^(?:.+/)+(.+).zip").unwrap();
     static ref NAMESPACE_REG: Regex = Regex::new(r"data/([a-z0-9_.-]+)").unwrap();
     static ref DATA_REG: Regex = Regex::new(r"data/.+").unwrap();
     static ref OVERLAY_REG: Regex = Regex::new(r"^([a-z0-9_-]+)/data/(.+)").unwrap();

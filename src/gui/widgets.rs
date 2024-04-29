@@ -5,9 +5,11 @@ use iced::theme;
 use iced::widget::{self, Column, Row, Rule};
 use iced_aw::DropDown;
 use strum_macros::Display;
-use crate::gui::font;
+use crate::gui::{font, widgets};
 use crate::gui::pack_info::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
+
+pub(crate) static MAX_CONTENT_WIDTH: f32 = 750.;
 
 pub(crate) static SPACING_SMALL: u16 = 3;
 pub(crate) static SPACING_LARGE: u16 = 6;
@@ -24,6 +26,16 @@ pub enum WidgetCallbackChannel {
 ///////////////////////////////
 //------ Basic Editors ------//
 ///////////////////////////////
+
+pub fn create_standard(element: Element<Message>) -> Element<Message> {
+    todo!()
+}
+
+pub fn create_collapsible(element: Element<Message>) -> Element<Message> {
+    todo!()
+}
+
+//------------//
 
 pub fn text_editor<'a, F>(
     label: &str,
@@ -263,7 +275,7 @@ where
         let collapsed = list_state.is_node_collapsed(i);
 
         let add_button = widget::button(
-                widget::text("+")
+            font::icon(font::PLUS_ICON)
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))
             .on_press(Message::Input(message_callback(ListEvent::Add(i + 1))))
@@ -272,8 +284,7 @@ where
             .width(Length::Fixed(button_size))
             .padding(0);
         let remove_button = widget::button(
-                //font::icon(font::TRASH_ICON)
-                widget::text("-")
+                font::icon(font::TRASH_ICON)
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))
             .on_press(Message::Input(message_callback(ListEvent::Remove(i))))
@@ -329,7 +340,7 @@ where
 
         let mut should_render_collapse_button = false;
 
-        let entry = if let ListInlineState::Extended(extended_widget) = &settings.inline_state {
+        let mut entry = if let ListInlineState::Extended(extended_widget) = &settings.inline_state {
             if let Some(inline_widget) = inline_widget {
                 controls = controls.push(inline_widget);
             }
@@ -350,8 +361,11 @@ where
             Column::new()
                 .push(controls)
         }
-        .push(Rule::horizontal(STANDARD_RULE_WIDTH))
         .spacing(SPACING_LARGE);
+
+        if i < data.len() - 1 {
+            entry = entry.push(Rule::horizontal(STANDARD_RULE_WIDTH))
+        }
 
         let entry = if should_render_collapse_button {
             let collapse_text = if collapsed { ">" } else { "v" };
