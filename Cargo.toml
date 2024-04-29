@@ -6,6 +6,9 @@ authors = ["The Lady Dawn"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+debug = ["iced/debug"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -20,5 +23,5 @@ zip = "0.6"
 lazy_static = "1.4.0"
 regex = "1.10.4"
 
-iced = { version = "0.12", features = ["image"] }
-iced_aw = { version = "0.8.0", features = ["default"]}
+iced = { version = "0.12", features = ["advanced", "image"] }
+iced_aw = { version = "0.8.0", features = ["default"] }

@@ -18,7 +18,7 @@ pub struct SerializableBiomeData {
 }
 
 impl SerializableBiomeData {
-    pub fn new(shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
+    fn new(shared_data: BiomeSharedData, format_data: BiomeFormatData) -> Self {
         Self {shared_data, format_data}
     }
 }

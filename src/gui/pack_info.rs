@@ -1,10 +1,11 @@
-use iced::{Alignment, Application, Element, widget};
+use iced::{Alignment, Application, Element, Font, widget};
 use iced::widget::{Column, container, Row};
 use strum_macros::Display;
 use crate::data::datapack::{Datapack, DatapackFormat, Overlay};
 use crate::data::{datapack, util};
 use crate::gui::widgets::{self, DropdownEvent, DropdownOption, DropdownState, ListEvent, ListInlineState, ListSettings, ListState, SPACING_LARGE, WidgetCallbackChannel};
 use crate::gui::widgets::MoveDirection::{Down, Up};
+use crate::gui::window;
 use crate::gui::window::{ApplicationWindow, Message};
 
 ////////////////////////////////////
@@ -110,9 +111,9 @@ pub fn handle_datapack_update(
 
 #[derive(Debug, Clone)]
 pub struct PackInfoState {
-    pub description_state: DescriptionState,
-    pub format_state: FormatState,
-    pub overlay_state: ListState,
+    description_state: DescriptionState,
+    format_state: FormatState,
+    overlay_state: ListState,
 }
 
 impl PackInfoState {
@@ -146,7 +147,7 @@ pub fn pack_info_gui<'a>(
         |text, index, collapsed, state| text_header_widget(text, index, collapsed, state),
         |list_event| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionEvent::Content(list_event))));
 
-    let format = format_selector(datapack, pack_info_state);
+    let format = format_selector(pack_info_state);
 
     let overlays = widgets::list("Overlays", datapack.overlays(), &pack_info_state.overlay_state, &pack_info_state,
         ListSettings {
@@ -182,10 +183,16 @@ fn text_gui_extended<'a>(
         return None;
     }
 
-    let text_editor = widgets::text_editor("Text", "Text", &text.text,
-        move |s| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionEvent::Content(
-            ListEvent::Edit(TextEditEvent::Text(s), index))
-        )));
+    let text_editor = Row::new()
+        .push(widget::text("Text:"))
+        .push(widget::text_input("Text", &*text.text.replace("\n", "\\n"))
+            .on_input(move |s| {
+                Message::Input(WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionEvent::Content(
+                    ListEvent::Edit(TextEditEvent::Text(s.replace("\\n", "\n")), index)))))
+            })
+            .font(Font::with_name(window::MINECRAFT_FONT)))
+        .align_items(Alignment::Center)
+        .spacing(SPACING_LARGE);
 
     let bold = widgets::boolean_toggle_optional("Bold", text.is_bold,
         move |is_bold| WidgetCallbackChannel::PackInfo(DatapackCallbackType::Description(DescriptionEvent::Content(
@@ -256,7 +263,7 @@ fn text_header_widget<'a>(
 }
 
 #[derive(Debug, Clone)]
-enum DescriptionEvent {
+pub enum DescriptionEvent {
     Content(ListEvent<TextEditEvent>),
     Type(usize, DropdownEvent<TextType>),
 }
@@ -302,7 +309,6 @@ pub struct DescriptionState {
 //------ Datapack Formats ------//
 
 fn format_selector<'a>(
-    datapack: &Datapack,
     pack_info_state: &PackInfoState
 ) -> Element<'a, Message, <ApplicationWindow as Application>::Theme> {
     let label = widget::text("Format:");
@@ -367,7 +373,7 @@ impl<'a> DropdownOption<'a> for DatapackFormat {
 //------------//
 
 #[derive(Clone, Debug)]
-enum FormatEvent {
+pub enum FormatEvent {
     Type(DropdownEvent<FormatType>),
     Format(usize, DropdownEvent<DatapackFormat>)
 }

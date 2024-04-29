@@ -5,6 +5,7 @@ use iced::theme;
 use iced::widget::{self, Column, Row, Rule};
 use iced_aw::DropDown;
 use strum_macros::Display;
+use crate::gui::font;
 use crate::gui::pack_info::DatapackCallbackType;
 use crate::gui::window::{ApplicationWindow, Message};
 
@@ -271,6 +272,7 @@ where
             .width(Length::Fixed(button_size))
             .padding(0);
         let remove_button = widget::button(
+                //font::icon(font::TRASH_ICON)
                 widget::text("-")
                     .horizontal_alignment(Horizontal::Center)
                     .vertical_alignment(Vertical::Center))

@@ -311,7 +311,7 @@ pub struct SerializableDataHolder<T: SerializableDataElement> {
 }
 
 impl<T: SerializableDataElement> SerializableDataHolder<T> {
-    pub fn anonymous(data_source: SerializableDataSource, data: T) -> Box<Self> {
+    fn anonymous(data_source: SerializableDataSource, data: T) -> Box<Self> {
         match data_source {
             SerializableDataSource::Root => {
                 Box::new(SerializableDataHolder {
@@ -334,13 +334,13 @@ impl<T: SerializableDataElement> SerializableDataHolder<T> {
         }
     }
 
-    pub fn named(resource_location: ResourceLocation, data_source: SerializableDataSource, data: T) -> Box<Self> {
+    fn named(resource_location: ResourceLocation, data_source: SerializableDataSource, data: T) -> Box<Self> {
         let mut data_holder = Self::anonymous(data_source, data);
         data_holder.resource_location = Some(resource_location);
         data_holder
     }
 
-    pub fn add(&mut self, data_source: SerializableDataSource, data_element: Box<T>) {
+    fn add(&mut self, data_source: SerializableDataSource, data_element: Box<T>) {
         match data_source {
             SerializableDataSource::Root => {
                 self.root_data = Some(*data_element);
@@ -351,7 +351,7 @@ impl<T: SerializableDataElement> SerializableDataHolder<T> {
         }
     }
 
-    pub fn get(&self, data_source: SerializableDataSource) -> Option<&T> {
+    fn get(&self, data_source: SerializableDataSource) -> Option<&T> {
         match data_source {
             SerializableDataSource::Root => {
                 Option::from(&self.root_data)
@@ -362,7 +362,7 @@ impl<T: SerializableDataElement> SerializableDataHolder<T> {
         }
     }
 
-    pub fn remove(&mut self, data_source: SerializableDataSource) {
+    fn remove(&mut self, data_source: SerializableDataSource) {
         match data_source {
             SerializableDataSource::Root => {
                 self.root_data = None;

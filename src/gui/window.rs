@@ -1,13 +1,19 @@
 use std::fmt::Debug;
-use iced::{Application, Command, Element, executor, Length, Renderer, Sandbox, Theme};
+use std::fs;
+use iced::{Application, Command, Element, executor, Font, Length, Renderer, Sandbox, Theme};
 use iced::alignment::Vertical;
 use iced::theme::Button;
 use iced::widget::{self, Container, Row, Column, PaneGrid, Rule};
 use iced::widget::pane_grid::{self, Axis, TitleBar};
+use lazy_static::lazy_static;
 use crate::data::datapack::{Datapack, SerializableDatapack};
 use crate::gui::{pack_info, widgets};
 use crate::gui::pack_info::PackInfoState;
 use crate::gui::widgets::WidgetCallbackChannel;
+
+pub const MINECRAFT_FONT: &str = "MinecraftRegular";
+
+//------------//
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -39,12 +45,12 @@ pub struct ApplicationWindow {
 
 impl Default for ApplicationWindow {
     fn default() -> Self {
-        let filepath_default = "data/1-20-4.zip";
+        let filepath_default = "resources/data/1-20-4.zip";
 
         let serialized_datapack = SerializableDatapack::from_zip(filepath_default).unwrap();
         let datapack = Datapack::try_from(serialized_datapack).unwrap();
 
-        let filepath_terralith = "data/Terralith_1.20_v2.4.11.zip";
+        let filepath_terralith = "resources/data/Terralith_1.20_v2.4.11.zip";
 
         let datapack = SerializableDatapack::from_zip(filepath_terralith).unwrap();
         let datapack = Datapack::try_from(datapack).unwrap();
@@ -100,8 +106,8 @@ impl Application for ApplicationWindow {
             //------ Program Functionality ------//
             ///////////////////////////////////////
             SwitchPacks => {
-                let filepath_default = "data/1-20-4.zip";
-                let filepath_terralith = "data/Terralith_1.20_v2.4.11.zip";
+                let filepath_default = "resources/data/1-20-4.zip";
+                let filepath_terralith = "resources/data/Terralith_1.20_v2.4.11.zip";
 
                 if self.datapack.name() == "1-20-4" {
                     let datapack = SerializableDatapack::from_zip(filepath_terralith).unwrap();
@@ -251,9 +257,9 @@ impl<'a> ApplicationWindow {
 
         widget::container(
             Column::new()
-                .push(widget::text(format!("{:#?}", self.state)))
+                .push(widget::text(format!("{:#?}", self.state)).font(Font::MONOSPACE))
                 .push(Rule::horizontal(widgets::STANDARD_RULE_WIDTH))
-                .push(widget::text(format!("{:#?}", datapack)))
+                .push(widget::text(format!("{:#?}", datapack)).font(Font::MONOSPACE))
                 .align_items(iced::Alignment::Start)
                 .spacing(10)
                 .width(Length::Fill)
